@@ -22,3 +22,14 @@ Thumbs.db
 .trash/
 .stversions/
 .stfolder/
+
+# Claudian プラグインのセッションログ（会話内容・公開厳禁）
+/.claudian/
+
+# テスト用（テンプレに組み込まない・名前のとおり）
+/9999_*/
+
+# Syncthing 残骸（2026-08-19 に Syncthing は廃止・git clone 方式へ）
+/.stfolder/
+/.stversions/
+/.stignore

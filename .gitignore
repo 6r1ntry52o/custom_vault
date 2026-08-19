@@ -7,6 +7,9 @@
 !/.obsidian/hotkeys.json
 !/.obsidian/templates.json
 
+# CSS スニペット（見た目のカスタムはテンプレに含める）
+!/.obsidian/snippets/
+
 # A1 決定（2026-08-19）: プラグイン個別設定は track しない（秘密混入を否定できない）
 # → 設定内容は docs/plugins.md に「手順」として書く
 /.obsidian/plugins/

@@ -1,0 +1,266 @@
+/* =============================================================
+   code-vscode-dark.css
+   コードブロックを VSCode ダークモード（Dark+）風にする
+   - 背景を黒（#1e1e1e）に固定（ライトモードでも黒）
+   - トークン配色を VSCode Dark+ に合わせる（読み取りビュー = Prism）
+   - Live Preview（CM6）も同じ黒背景に統一
+   - インラインコードは対象外（本文中で浮かないよう別扱い）
+   ============================================================= */
+
+/* VSCode Dark+ の配色定義 */
+.markdown-preview-view,
+.markdown-source-view.mod-cm6 {
+  --vsc-bg:       #262626;   /* ブロック背景（真っ黒ではなくグレー寄り） */
+  --vsc-border:   #4a4a4a;   /* 境界線（背景と同化しない明るさ） */
+  --vsc-fg:       #d4d4d4;   /* 既定の文字色 */
+  --vsc-comment:  #6a9955;   /* コメント（緑） */
+  --vsc-string:   #ce9178;   /* 文字列（橙） */
+  --vsc-keyword:  #569cd6;   /* キーワード（青） */
+  --vsc-function: #dcdcaa;   /* 関数名（黄） */
+  --vsc-number:   #b5cea8;   /* 数値（薄緑） */
+  --vsc-class:    #4ec9b0;   /* 型・クラス名（青緑） */
+  --vsc-var:      #9cdcfe;   /* 変数・プロパティ（水色） */
+  --vsc-punct:    #d4d4d4;   /* 記号 */
+  --vsc-regex:    #d16969;   /* 正規表現（赤） */
+}
+
+/* インラインコード `x` 用のカラー（本文中で埋もれない配色） */
+/* ライト：白背景で沈まない濃いめのローズ＋薄いグレー下地 */
+.markdown-preview-view,
+.markdown-source-view.mod-cm6 {
+  --inline-code-fg: #c7254e;
+  --inline-code-bg: rgba(0, 0, 0, 0.06);
+  --inline-code-border: rgba(0, 0, 0, 0.10);
+}
+/* ダーク：黒背景で浮かぶ明るいローズ＋薄い白下地 */
+.theme-dark .markdown-preview-view,
+.theme-dark .markdown-source-view.mod-cm6 {
+  --inline-code-fg: #e5919f;
+  --inline-code-bg: rgba(255, 255, 255, 0.10);
+  --inline-code-border: rgba(255, 255, 255, 0.14);
+}
+
+/* 読み取りビュー：pre 内は対象外（コードブロックはそのまま） */
+.markdown-rendered :not(pre) > code {
+  color: var(--inline-code-fg) !important;
+  background: var(--inline-code-bg) !important;
+  border: 1px solid var(--inline-code-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.88em;
+}
+/* Live Preview：インラインコード（cm-inline-code） */
+.markdown-source-view.mod-cm6 .cm-inline-code {
+  color: var(--inline-code-fg) !important;
+  background: var(--inline-code-bg);
+  border-radius: 4px;
+  padding: 0.1em 0.2em;
+}
+
+/* =============================================================
+   読み取りビュー：ブロック本体を黒背景に
+   ============================================================= */
+.markdown-rendered pre {
+  background: var(--vsc-bg) !important;
+  border: 1px solid var(--vsc-border);
+  border-left: 4px solid #858585;   /* 既定の言語アクセント（下で言語別に上書き） */
+  border-radius: 8px;
+  color: var(--vsc-fg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);   /* ダークでも境界が浮く */
+  /* 読み取りビューは既定で行間が広く Live Preview とズレる。
+     Live Preview（エディタ）の行高に寄せて詰める。 */
+  line-height: 1.3;
+}
+.markdown-rendered pre > code {
+  line-height: 1.3;   /* code 側にも同値を効かせて確実に詰める */
+}
+/* ダークモードは背景差が小さいので枠と影を強めて境界を明確に */
+.theme-dark .markdown-rendered pre {
+  border-color: #565656;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 3px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* 言語（拡張子）ごとの左アクセントバーは廃止。
+   読み取りビューは :has() で言語別に色分けできるが、Live Preview（CM6）は
+   行に言語クラスが付かず同じことができないため、両ビューで不整合になる。
+   一貫性を優先し、左バーは一律グレー（#858585）に統一している
+   （色は .markdown-rendered pre と .HyperMD-codeblock の border-left で指定）。 */
+.markdown-rendered pre > code {
+  background: transparent !important;
+  color: var(--vsc-fg);
+  text-shadow: none !important;
+}
+
+/* Prism トークン配色（VSCode Dark+ 準拠） */
+.markdown-rendered .token.comment,
+.markdown-rendered .token.prolog,
+.markdown-rendered .token.doctype,
+.markdown-rendered .token.cdata { color: var(--vsc-comment); font-style: italic; }
+
+.markdown-rendered .token.string,
+.markdown-rendered .token.char,
+.markdown-rendered .token.attr-value { color: var(--vsc-string); }
+
+.markdown-rendered .token.keyword,
+.markdown-rendered .token.boolean,
+.markdown-rendered .token.tag,
+.markdown-rendered .token.selector { color: var(--vsc-keyword); }
+
+.markdown-rendered .token.function,
+.markdown-rendered .token.function-name { color: var(--vsc-function); }
+
+.markdown-rendered .token.number,
+.markdown-rendered .token.unit { color: var(--vsc-number); }
+
+.markdown-rendered .token.class-name,
+.markdown-rendered .token.builtin,
+.markdown-rendered .token.namespace { color: var(--vsc-class); }
+
+.markdown-rendered .token.property,
+.markdown-rendered .token.variable,
+.markdown-rendered .token.attr-name,
+.markdown-rendered .token.parameter { color: var(--vsc-var); }
+
+.markdown-rendered .token.operator,
+.markdown-rendered .token.punctuation,
+.markdown-rendered .token.entity { color: var(--vsc-punct); }
+
+.markdown-rendered .token.regex,
+.markdown-rendered .token.important { color: var(--vsc-regex); }
+
+/* ```diff：+ を緑・- を赤（文字色＋淡い背景）。
+   inserted/deleted は diff 専用トークンなのでコード配色側に集約。 */
+.markdown-rendered .language-diff .token.inserted {
+  color: var(--color-green);
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+}
+.markdown-rendered .language-diff .token.deleted {
+  color: var(--color-red);
+  background: color-mix(in srgb, var(--color-red) 12%, transparent);
+}
+
+/* =============================================================
+   Live Preview（CM6）：コードブロック行を黒背景に統一
+   CM6 は行ごとに .HyperMD-codeblock が付くため、行単位で背景を敷く。
+   先頭行/末尾行で角丸を付けてブロックらしく見せる。
+   ============================================================= */
+.markdown-source-view.mod-cm6 .HyperMD-codeblock {
+  background: var(--vsc-bg) !important;
+  color: var(--vsc-fg);
+  border-left: 4px solid #858585;      /* 左アクセント（境界の目印） */
+  border-right: 1px solid var(--vsc-border);
+}
+.markdown-source-view.mod-cm6 .HyperMD-codeblock-begin {
+  border-top: 1px solid var(--vsc-border);
+  border-radius: 8px 8px 0 0;
+}
+.markdown-source-view.mod-cm6 .HyperMD-codeblock-end {
+  border-bottom: 1px solid var(--vsc-border);
+  border-radius: 0 0 8px 8px;
+}
+/* ダークモードは境界を強調 */
+.theme-dark .markdown-source-view.mod-cm6 .HyperMD-codeblock {
+  border-right-color: #565656;
+}
+/* --- 地の文字（トークン化されない部分）だけを明色に ---
+   ※ 色は「行（.cm-line）」に設定する。span に直接指定すると
+      トークンの色（下の cm-* ルールや Obsidian 標準の配色）まで
+      白く潰してしまい、js 以外が全部白くなる原因になる。 */
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-codeblock {
+  color: var(--vsc-fg);
+}
+
+/* Live Preview の行内トークン（CM6 の cm- クラス）を読み取りビュー
+   （Prism）と同じ VSCode 配色に揃える。CodeMirror のトークン種別を
+   Prism の対応種別と同じ色変数へマッピングする。
+   テーマ標準色に負けないよう !important で確定させる。
+   ── 対応表（読み取りビュー = Live Preview）──
+     comment          → --vsc-comment（緑・斜体）
+     string           → --vsc-string （橙）
+     keyword/boolean  → --vsc-keyword（青） ※CMの atom/meta も boolean 相当
+     tag/selector     → --vsc-keyword（青）
+     function         → --vsc-function（黄） ※CMの def/qualifier
+     number           → --vsc-number（薄緑）
+     class-name/builtin→ --vsc-class  （青緑）※CMの variable-3/type/builtin
+     property/variable/attr-name → --vsc-var（水色）
+     operator/punctuation → --vsc-punct
+   ここに無い種別だけ地の色（--vsc-fg）になる（＝CMが細分できない箇所）。 */
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-comment    { color: var(--vsc-comment) !important; font-style: italic; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-string,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-string-2   { color: var(--vsc-string) !important; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-keyword,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-atom,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-meta,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-tag        { color: var(--vsc-keyword) !important; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-def,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-qualifier  { color: var(--vsc-function) !important; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-variable,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-variable-2,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-property,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-attribute  { color: var(--vsc-var) !important; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-number     { color: var(--vsc-number) !important; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-operator,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-bracket,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-punctuation { color: var(--vsc-punct) !important; }
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-variable-3,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-type,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-builtin    { color: var(--vsc-class) !important; }
+/* 読み取りビュー：language-* が付かない <code> も明色に固定 */
+.markdown-rendered pre > code:not([class*="language-"]),
+.markdown-rendered pre > code:not([class*="language-"]) * {
+  color: var(--vsc-fg) !important;
+}
+
+/* =============================================================
+   カーソル（キャレット）を黒背景でも見えるように
+   コードブロック行内のみキャレットを明るい色にする（VSCode の caret）
+   ============================================================= */
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-codeblock {
+  caret-color: #aeafad;
+}
+/* 選択範囲も黒背景で見えるように少し明るく */
+.markdown-source-view.mod-cm6 .HyperMD-codeblock ::selection {
+  background: #264f78;   /* VSCode の選択色 */
+}
+
+/* =============================================================
+   右上の言語ラベル / コピーボタンを黒背景で見えるように
+   ── 重要 ──
+   Live Preview（編集ビュー）で右上に出る「言語名＝コピーボタン」は
+   .markdown-source-view.mod-cm6 .code-block-flair という要素。
+   読み取りビューは .markdown-rendered button.copy-code-button。
+   両ビューを対象にしないと効かない（以前は読み取りビューのみ指定で
+   Live Preview に当たっていなかった）。
+   ============================================================= */
+
+/* Live Preview：言語名ラベル（クリックでコピーされるボタン） */
+.markdown-source-view.mod-cm6 .code-block-flair {
+  color: #ffffff !important;              /* はっきり読める白 */
+  opacity: 1 !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.12);  /* 薄い下地で背景から浮かせる */
+  border-radius: 5px;
+  padding: 1px 8px;
+}
+.markdown-source-view.mod-cm6 .code-block-flair:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.24);  /* ホバーでさらに明るく */
+}
+
+/* 読み取りビュー：コピーボタン（言語名は出ない版） */
+.markdown-rendered .code-block-flair,
+.markdown-rendered pre > button.copy-code-button {
+  color: #ffffff !important;
+  opacity: 1 !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  padding: 1px 8px;
+}
+.markdown-rendered .code-block-flair:hover,
+.markdown-rendered pre > button.copy-code-button:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.24);
+}

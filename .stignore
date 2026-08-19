@@ -1,0 +1,17 @@
+// Syncthing 除外（フォルダID: custom-vault）
+// 正本: core/mulmoclaude/docs/vault-template-design.md §2.6
+
+// 🔴 git は同期しない。両側の同時 commit でオブジェクトDBが壊れる。
+// git 操作は Windows 側に集約する。
+/.git
+
+// 端末ごとにペイン配置が違い、開くたびに競合を作る
+/.obsidian/workspace.json
+/.obsidian/workspace-mobile.json
+
+// OS ノイズ
+.DS_Store
+Thumbs.db
+.stversions
+.stfolder
+.trash

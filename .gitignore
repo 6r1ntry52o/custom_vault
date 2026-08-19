@@ -1,0 +1,24 @@
+# .obsidian: 選別track方式（core 側 .gitignore の部分集合であること）
+# 参照: core/mulmoclaude/docs/vault-template-design.md §2.3-1
+/.obsidian/*
+!/.obsidian/community-plugins.json
+!/.obsidian/core-plugins.json
+!/.obsidian/appearance.json
+!/.obsidian/hotkeys.json
+!/.obsidian/templates.json
+
+# A1 決定（2026-08-19）: プラグイン個別設定は track しない（秘密混入を否定できない）
+# → 設定内容は docs/plugins.md に「手順」として書く
+/.obsidian/plugins/
+
+# A1 決定（2026-08-19）: workspace.json は track しない（開くだけで変化するノイズ）
+# → starter/workspace.example.json を利用者が手で置く
+/.obsidian/workspace.json
+/.obsidian/workspace-mobile.json
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.trash/
+.stversions/
+.stfolder/

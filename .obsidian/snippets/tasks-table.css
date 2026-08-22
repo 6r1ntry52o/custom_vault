@@ -2,57 +2,244 @@
    Tasks プラグインのクエリ結果をテーブル風に整列させる
    （チェックボックスはクリックで元ファイルを書き換え可能なまま）
 
-   列: [チェックボックス] [タスク本文] [ファイル(バックリンク)]
+   列: [☑] [📅 期限日] [⏩ 延期] [タスク内容] [ファイル] [📝 編集]
    対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
+
+   ---- 構造の前提（Tasks プラグインの DOM）----
+     li.plugin-tasks-list-item
+       ├ span.tasks-list-text   … .task-description / .task-due など
+       ├ input.task-list-item-checkbox
+       └ span.task-extras       … .tasks-urgency / .tasks-backlink /
+                                   .tasks-edit / .tasks-postpone
+   期限日は .tasks-list-text の中、延期ボタンは .task-extras の中にあり、
+   並べたい順序（期限日 → 延期 → 本文 → リンク → 編集）はこの 2 つの
+   ラッパーをまたぐ。そこで ul に 6 列を定義し、li と両ラッパーを
+   subgrid にして、親の列トラックを共有させている。
+
+   ※ display:contents でラッパーを潰す方法は採らない。期限日を持たない
+     タスクでは .task-due と .tasks-postpone がそもそも生成されず、列に
+     穴が空く。すると次の行の要素がその穴へ流れ込んで行が崩れる。
+     subgrid なら li が 1 行を占有するので、要素が欠けても穴が残るだけ。
    ============================================================ */
 
 .block-language-tasks ul.plugin-tasks-query-result {
   display: grid;
-  /* 列幅。好みで調整（1列目=チェックボックス, 2列目=本文, 3列目=ファイル名） */
-  grid-template-columns: 1.7em minmax(0, 1fr) minmax(8em, 16em);
-  column-gap: 0;
-  align-items: baseline;
-  margin: 0.4em 0;
+  /* 列幅。好みで調整 */
+  grid-template-columns:
+    auto               /* 1 チェックボックス */
+    auto                /* 2 期限日 📅（日付の実幅ぶんだけ取る） */
+    auto               /* 3 延期 ⏩ */
+    minmax(0, 1fr)      /* 4 タスク内容（余りを全部もらう） */
+    minmax(0, 12em)     /* 5 ファイル（短い名前なら詰まる。上限だけ決める） */
+    1.4em;              /* 6 編集 📝 */
+  column-gap: 0.2em;
+  row-gap: 0;
+  margin: 0 0 0 0;   /* 上マージン 0 = 見出しとタスクの間を詰める */
   padding-left: 0;
   border-top: 1px solid var(--background-modifier-border);
+  /* 期限日・ファイル名など、小さめに落とす文字のサイズ */
+  --tasks-small: calc(var(--font-text-size, 16px) * 0.85);
+  /* 行ボックスの高さ。px なので font-size が違うセルでも同じ高さになり、
+     上端を揃えるだけで 1 行目のベースラインがほぼ一致する。 */
+  --tasks-line-box: calc(var(--line-height-tight, 1.3) * var(--font-text-size, 16px));
+  /* 行の上下パディング。文字の上下の余白が揃わないときはこの 2 つで調整する
+     （和文フォントはベースラインより下が空くので、下を少し削ると視覚的に揃う） */
+  --tasks-pad-top: 0.12em;
+  --tasks-pad-bottom: 0.12em;
 }
 
-/* li を「透明化」して、その子要素（チェックボックス/本文/バックリンク）を
-   直接グリッドのセルとして並べる = 列が揃う */
+/* li が 1 行ぶんの箱。罫線とホバーはここに乗せるので、
+   本文が 2 行に折り返しても列ごとに罫線の高さがズレない。
+
+   li の子（.tasks-list-text → input → .task-extras）にも grid-row: 1 を
+   明示すること。DOM 順に対して列番号が 2→1→3 と一度戻るため、自動配置に
+   任せると .tasks-list-text の後ろの 2 つが次の行へ送られ、
+   チェックボックスと ⏩ / ファイル名 / 📝 が本文の下に落ちる。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item {
-  display: contents;
-}
-
-/* 各セル共通：行の区切り線とパディング */
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > * {
-  border-bottom: 1px solid var(--background-modifier-border);
-  padding: 0.35em 0.8em 0.35em 0;
-}
-
-/* 1列目: チェックボックス（テーマの負マージンを打ち消す） */
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > input.task-list-item-checkbox {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  /* baseline 揃えは使わない。overflow:hidden を持つ ⏩ / 📝 はベースラインを
+     「箱の下端」から合成するため、それに引きずられて .task-extras 全体が
+     下へ落ちる。上端揃え＋共通の行ボックスで 1 行目を機械的に揃える。 */
+  align-items: start;
+  /* Obsidian は `.markdown-rendered ul > li` に margin-inline-start: 3ch を
+     当てており、これが行全体の左インデントになる。0 にして左端に揃える。 */
   margin: 0;
-  align-self: center;
+  padding: var(--tasks-pad-top) 0 var(--tasks-pad-bottom);
+  border-bottom: 1px solid var(--background-modifier-border);
+  line-height: var(--tasks-line-box);
+}
+
+/* 行の中の文字は、リンク・タグ・絵文字も含めて同じ行ボックス高に揃える。
+   1 つでも line-height の大きいインライン要素が混ざると、その行だけ行ボックスが
+   縦に膨らみ、膨らんだぶんが文字の下に余白として出る。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item * {
+  line-height: var(--tasks-line-box);
+}
+
+/* ⏩ とタスク内容の間の縦罫線。
+   li 自身の ::before をグリッドアイテムとして 4 列目（タスク内容）の
+   左端に置き、幅 0 ＋ border-left で 1px の線にする。列幅は auto や 1fr で
+   決まるため位置を数値で指定できないが、この方法なら常に列境界に乗る。
+   align-self: stretch で行の高さいっぱいに伸ばし、上下は li のパディング
+   ぶん（0.12em）マイナスマージンで食い出させて、上下の横罫線まで届かせる。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before {
+  content: "";
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: start;
+  align-self: stretch;
+  width: 0;
+  /* 列間 0.4em のちょうど真ん中に置く */
+  margin: calc(-1 * var(--tasks-pad-top)) 0 calc(-1 * var(--tasks-pad-bottom)) -0.2em;
+  border-left: 1px solid var(--background-modifier-border);
+  pointer-events: none;
+}
+
+/* テーマ由来のリスト／段落間隔も打ち消す */
+.block-language-tasks ul.plugin-tasks-query-result,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item {
+  --p-spacing: 0;
+  --list-spacing: 0;
+}
+
+/* 1列目: チェックボックス（テーマの負マージンを打ち消す）。
+   2 行になっても 1 行目に留め、その中で上下中央に置く。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > input.task-list-item-checkbox {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+  /* Obsidian は読み取りビューのチェックボックスに position:relative; top:0.2em を
+     当てて下へずらす。こちらで行ボックスの中央に置くので打ち消す。 */
+  top: 0;
+  align-self: start;
+  margin-top: calc((var(--tasks-line-box) - var(--checkbox-size, 1em)) / 2);
   justify-self: center;
 }
 
-/* 2列目: タスク本文（期日・タグ・優先度などもここに入る） */
+/* 2〜4列目: [📅 期限日][（延期の列は空ける）][タスク内容] */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 2 / 5;
+  grid-row: 1;
+  align-items: start;
+  align-content: start;
   min-width: 0;
   overflow-wrap: anywhere;
+  /* この箱は 2〜4 列目（⏩ の列を含む）を覆う。さらにプラグインの
+     styles.css が .tasks-list-text に position: relative を当てているため、
+     静的配置の .task-extras より前面に描かれ、⏩ のクリックを奪ってしまう。
+     箱自体の当たり判定を切り、葉要素だけに戻す（.task-extras と対称）。 */
+  pointer-events: none;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text > * {
+  pointer-events: auto;
+}
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-due {
+  grid-column: 1;
+  grid-row: 1;
+  white-space: nowrap;
+  font-size: var(--tasks-small);
+  opacity: 0.85;
+}
+/* 📅 を消す。
+   Tasks は " 📅 2026-08-22" を 1 つのテキストノードとして書き出すため、
+   絵文字だけを包む要素が無くセレクタで掴めない。先頭の 1 文字＝絵文字を
+   ::first-letter で拾い、font-size: 0 にして幅ごと潰す。
+   （先頭の半角スペースは行頭で除去されるので絵文字が第 1 文字になる。
+     グリッドアイテムはブロック化されるので ::first-letter が効く） */
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-due::first-letter {
+  font-size: 0;
+}
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-description {
+  grid-column: 3;
+  grid-row: 1;
+  padding-left: 0.2em;   /* 縦罫線と本文の間の余白（⏩ 側と同じ量） */
+}
+/* 優先度・繰り返し・開始日など、明示配置していない要素は本文の列に流し、
+   2 行目以降へ送る（延期ボタン用の細い列に落ちて潰れるのを防ぐ） */
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-due):not(.task-description) {
+  grid-column: 3;
+  grid-row: 2;
+  font-size: var(--tasks-small);
 }
 
-/* 3列目: ファイル名（1行に収めて溢れたら … ） */
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-backlink {
+/* 3・5・6列目: [⏩ 延期][ファイル][📝 編集]
+   列だけ指定して行を省くと破綻する。自動配置は DOM 順に前へ進むだけで
+   戻れないため、.task-extras の DOM 順（urgency → backlink → edit →
+   postpone）だと、最後の postpone が左の 1 列目に戻れず次の行へ落ちる。
+   grid-row: 1 を明示して 1 行に固定する。
+   延期ボタンだけが本文より左に来るため、.tasks-list-text と列が重なる。
+   重なった側（後ろに描かれる .task-extras）が本文へのクリックを奪うので、
+   箱自体は当たり判定を切り、中身だけ戻す。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .task-extras {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 3 / -1;
+  grid-row: 1;
+  align-items: start;
+  align-content: start;
+  pointer-events: none;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .task-extras > * {
+  pointer-events: auto;
+}
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-postpone {
+  grid-column: 1;
+  grid-row: 1;
+  /* justify-self: stretch で列いっぱいに広がり、overflow:hidden で
+     グリフが箱の縁ぴったりに切られるため、縦罫線と接して見える。
+     箱を右に少し縮めて隙間を作る。 */
+  margin-right: 0.2em;
+}
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink { grid-column: 3; grid-row: 1; }
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-edit     { grid-column: 4; grid-row: 1; }
+/* .tasks-urgency など未配置の要素はファイルの列へ（2 行目以降に流れる） */
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > *:not(.tasks-postpone):not(.tasks-backlink):not(.tasks-edit) {
+  grid-column: 3;
+  grid-row: 2;
+  font-size: var(--tasks-small);
+}
+
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.85em;
   opacity: 0.8;
+  /* Tasks は非 short mode で " (" と ")" をテキストノードとして直接追加する。
+     テキストノードは CSS で選択できないため、親を font-size:0 にして潰し、
+     中の <a>（ファイル名リンク）だけ実サイズに戻す。 */
+  font-size: 0;
+}
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink > a {
+  font-size: var(--tasks-small);
+}
+
+/* プラグイン既定の width/height:1em は絵文字の実幅より小さく、
+   グリッドアイテム化するとグリフが隣の列にはみ出して重なる。
+   サイズ指定を解除し、セル幅いっぱいの箱に収めて中央寄せする。 */
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-edit,
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-postpone {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  line-height: var(--tasks-line-box);
+  font-size: 0.9em;
+  text-align: center;
+  overflow: hidden;
+  justify-self: stretch;
+  align-self: start;
+}
+/* 上の margin: 0 に後から勝たせる（縦罫線との隙間） */
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-postpone {
+  margin-right: 0.2em;
 }
 
 /* 行ホバー */
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:hover > * {
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:hover {
   background: var(--background-modifier-hover);
 }
 
@@ -70,23 +257,91 @@
   }
   .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item {
     display: list-item;
-  }
-  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > * {
     border-bottom: none;
     padding: 0;
   }
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before {
+    display: none;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text,
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .task-extras {
+    display: inline;
+    pointer-events: auto;
+  }
+}
+
+
+/* ------------------------------------------------------------
+   ツールバー（🔽 Filter by description... とコピーボタン）
+   プラグイン既定は justify-content: space-between で、検索ボックスが
+   左端・コピーボタンが右端に離れる。まとめて右端に寄せる。
+   フィルタアイコンの svg は position:absolute だが座標指定が無く
+   静的位置に留まるので、ボックスと一緒に動く。
+------------------------------------------------------------ */
+.block-language-tasks .plugin-tasks-toolbar {
+  justify-content: flex-end;
+  align-items: center;
+  /* Obsidian の input と button はどちらも height: var(--input-height)（既定
+     30px）を使う。ツールバーの中だけ値を下げれば両方まとめて低くなる。
+     プラグイン側で input は height:100% なので、ラベルの高さに追従する。 */
+  --input-height: 18px;
+  /* ボタンの中のアイコンも一段小さく */
+  --icon-size: var(--icon-s);
+}
+.block-language-tasks .plugin-tasks-toolbar label input {
+  padding-block: 0;
+  font-size: var(--font-ui-small);
+}
+.block-language-tasks .plugin-tasks-toolbar button {
+  padding-inline: var(--size-4-2);
 }
 
 /* ------------------------------------------------------------
-   応用: 期日を独立した列にしたい場合は上の grid-template-columns を
-     1.7em minmax(0,1fr) 7em minmax(8em,16em)
-   に変えたうえで、以下のコメントを外す。
-   （タグ・優先度・繰り返しはクエリ側で hide tags / hide priority /
-     hide recurrence rule として非表示にしておくこと）
+   最下部のタスク件数（"3 tasks"）を右寄せにする。
+   プラグインは div.task-count として出力するので、ブロック要素として
+   text-align で寄せられる。
 ------------------------------------------------------------ */
-/*
-.block-language-tasks ul.plugin-tasks-query-result > li > .tasks-list-text { display: contents; }
-.block-language-tasks ul.plugin-tasks-query-result .task-description { grid-column: 2; }
-.block-language-tasks ul.plugin-tasks-query-result .task-due        { grid-column: 3; font-size: .85em; white-space: nowrap; }
-.block-language-tasks ul.plugin-tasks-query-result .tasks-backlink  { grid-column: 4; }
-*/
+.block-language-tasks .task-count {
+  text-align: right;
+}
+
+/* ------------------------------------------------------------
+   読み取りビュー：クエリ結果ブロックの下に空く余白を詰める。
+   読み取りビューはコードブロックを div.el-pre でくるむため、
+   ラッパー側のブロック余白（--p-spacing 由来）や、ブロック内の
+   最後の子要素（件数表示）の下マージンが残って見える。
+   ブロック本体・ラッパー・最後の子の 3 か所をまとめて 0 にする。
+------------------------------------------------------------ */
+.markdown-preview-view .block-language-tasks,
+.markdown-preview-view .el-pre:has(> .block-language-tasks),
+.markdown-preview-view .block-language-tasks > :last-child {
+  margin-block-end: 0;
+  padding-block-end: 0;
+}
+
+/* ------------------------------------------------------------
+   group by ... の見出し（ファイル名など）の上下マージンを 0 に
+   Tasks は入れ子の深さに応じて h4〜h6 を出力する
+------------------------------------------------------------ */
+.block-language-tasks h1.tasks-group-heading,
+.block-language-tasks h2.tasks-group-heading,
+.block-language-tasks h3.tasks-group-heading,
+.block-language-tasks h4.tasks-group-heading,
+.block-language-tasks h5.tasks-group-heading,
+.block-language-tasks h6.tasks-group-heading {
+  margin-block-start: 0;
+  margin-block-end: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 0;
+}
+
+/* 見出しとタスクリストの間の余白を完全に除去（ラッパー有無どちらでも効くように） */
+.block-language-tasks .tasks-group-heading + ul.plugin-tasks-query-result,
+.block-language-tasks .tasks-group-heading + * ul.plugin-tasks-query-result,
+.block-language-tasks ul.plugin-tasks-query-result:first-child {
+  margin-top: 0;
+  padding-top: 0;
+}

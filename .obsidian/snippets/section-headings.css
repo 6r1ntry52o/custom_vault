@@ -21,9 +21,12 @@
    深さは サイズ / 太さ / 装飾 / 彩度 の 4 つだけで表現する。
    ============================================================= */
 
-/* ---- カラー / 寸法の定義（ライト＝濃いめ / ダーク＝明るめ） ---- */
+/* ---- カラー / 寸法の定義（ライト＝濃いめ / ダーク＝明るめ） ----
+   .base ファイルのビューは Markdown ビューの外側にあり、この2つの
+   セレクタに入らない。表ヘッダの色に --sec-* を使うので同じ定義を届ける。 */
 .markdown-preview-view,
-.markdown-source-view.mod-cm6 {
+.markdown-source-view.mod-cm6,
+.workspace-leaf-content[data-type="bases"] {
   /* ---- 階層カラーランプ（アクセントカラー追従）----
      Obsidian は [設定 > 外観 > アクセントカラー] の選択色を HSL に分解し、
      document.body のインラインスタイルへ次の 3 つを書き込む:
@@ -57,6 +60,9 @@
      最悪でも 11.0:1 を確保できることを確認済み。 */
   --sec-table-head-bg: color-mix(in srgb, var(--sec-c3) 18%, var(--background-primary));
   --sec-table-pad: 0.35em 0.7em;
+  /* 罫線色。既定の --table-border-color はアクセント下地に負けて消えるので、
+     本文色ベースに上げる。Markdown 表と Bases の両方でこの 1 つを使う */
+  --sec-line: color-mix(in srgb, var(--text-normal) 22%, transparent);
   --table-header-background: var(--sec-table-head-bg);
 
   --sec-indent: 0.7rem;   /* 全見出し共通の文字左端（全レベル同じ深さ）。
@@ -91,7 +97,8 @@
   --h6-size: 0.94em;  --h6-weight: 600;
 }
 .theme-dark .markdown-preview-view,
-.theme-dark .markdown-source-view.mod-cm6 {
+.theme-dark .markdown-source-view.mod-cm6,
+.theme-dark .workspace-leaf-content[data-type="bases"] {
   /* ダークは明度を反転させる（地が暗いので、明るいほど目立つ）。
      既定の紫での #1e1e1e 地コントラスト比:
        10.54 → 7.48 → 5.18 → 3.26 → 2.25 → 1.86 */
@@ -388,7 +395,7 @@
 .markdown-preview-view td,
 .markdown-source-view.mod-cm6 th,
 .markdown-source-view.mod-cm6 td {
-  border: 1px solid color-mix(in srgb, var(--text-normal) 22%, transparent);
+  border: 1px solid var(--sec-line);
 }
 
 /* パディングは適用先が違うので分けて書き、同じ値を渡す */
@@ -413,4 +420,32 @@
 .markdown-preview-view tbody tr:hover td,
 .markdown-source-view.mod-cm6 tbody tr:hover td {
   background: var(--background-modifier-hover);
+}
+
+/* =============================================================
+   Bases（.base ファイル／ノートへの埋め込み）の表ヘッダ
+   Markdown の表ヘッダと同じアクセント下地に揃える。
+
+   ※ Bases は --table-header-background を読まない。専用の
+     --bases-table-header-* 系（app.css の body で定義）を使うので、
+     そちらを上書きする。適用先は .bases-thead の祖先であればよく、
+     ここではビューの外枠に置いている。
+   ※ コールアウト内に埋め込んだ Bases は Obsidian 側が .callout で
+     ヘッダを transparent にしてコールアウト色を透かす。.callout の方が
+     .bases-thead に近い祖先なのでそちらが勝ち、既定の見た目が残る。
+   ============================================================= */
+.workspace-leaf-content[data-type="bases"],
+.markdown-preview-view,
+.markdown-source-view.mod-cm6 {
+  --bases-table-header-background: var(--sec-table-head-bg);
+  --bases-table-header-background-hover: color-mix(in srgb, var(--sec-c3) 30%, var(--background-primary));
+  --bases-table-header-color: var(--text-normal);
+  --bases-table-header-weight: 700;
+  /* 罫線。Bases は box-shadow で線を引いており、参照する変数が2系統ある。
+       行・列の区切り   : .bases-tr / .bases-td → --table-border-color
+       ヘッダ行の下線   : .bases-thead        → --bases-table-border-color
+     既定の淡い色のままだとアクセント下地に埋もれて消えるため、
+     Markdown 表と同じ --sec-line に揃える。 */
+  --table-border-color: var(--sec-line);
+  --bases-table-border-color: var(--sec-line);
 }

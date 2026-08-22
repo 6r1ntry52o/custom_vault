@@ -1,0 +1,97 @@
+/* =============================================================
+   dataview-compact.css
+   ```dataviewjs / ```dataview ブロックの上下余白を、
+   読み取りビューとライブプレビューで同じ量に揃える
+
+   ---- 調査（Obsidian 1.13.7 の app.js / app.css を実測）----
+
+   [1] DOM 構造が両ビューで違う
+     読み取り : postprocessor が `<pre>` を丸ごと差し替える
+                （app.js: createDiv("block-language-"+lang) → pre.replaceWith）
+                → div.el-div > div.block-language-dataviewjs > <p>
+                セクションの包みは「描画後の firstChild のタグ名」で
+                el-* が決まる（app.js: addClass("el-"+firstChild.tagName)）。
+                差し替え後の firstChild は div なので **.el-pre ではなく .el-div**。
+     Live Prev: ブロックウィジェットが .cm-content の直下に入る
+                （app.js: createDiv("cm-preview-code-block cm-embed-block
+                 markdown-rendered cm-lang-"+lang)）
+                → div.cm-preview-code-block.cm-embed-block.cm-lang-dataviewjs
+                  > div.block-language-dataviewjs > <p>
+
+   [2] 中身の余白は両ビュー同じ
+     LP のウィジェットにも `markdown-rendered` が付くので、
+     `.markdown-rendered p { margin-block: var(--p-spacing) }`（既定 1rem）が
+     両ビューに等しく効く。→ ここは共通ルール 1 つで潰せる。
+
+   [3] ズレの正体は「ブロックの外側」
+     読み取り : 直前の見出しの margin-bottom（= --p-spacing 1rem）と
+                直後の見出しの margin-top（同 1rem）で前後 1rem ずつ空く。
+                ※ 通常のコードブロックが得る --heading-spacing（1rem × 2.5）は
+                  `div:is(.el-blockquote,.el-p,.el-pre,.el-table,.el-ul,.el-ol) + div > h*`
+                  という app.css のルール由来で、**.el-div は対象外**。
+                  よって dataview ブロックの直後の見出しは 1rem のまま。
+     Live Prev: 見出し行（.cm-line.HyperMD-header）には
+                `padding-top: var(--p-spacing)` しか無く、**margin-bottom が無い**。
+                = 見出しの「下」の 1rem が存在しない。
+                → ウィジェット上部だけが詰まって見える。これが差分。
+
+   ---- 対処 ----
+   ブロックの内側（dv が吐く <p> / <ul>）の余白は 0 にして、
+   「ブロックの上下 1rem（= --p-spacing）」だけで間隔を管理する。
+     読み取り : 包み（.el-div）に margin-block: 1rem。隣接要素と相殺されて 1rem。
+     Live Prev: ウィジェット自身に margin-block: 1rem。.cm-line は margin を
+                持たないので相殺は起きず、そのまま 1rem。
+                直後が見出し行のときだけ二重（2rem）になるので、その 1 例外を
+                隣接セレクタで 0 に戻す。
+   結果、前が段落でも見出しでも別ブロックでも、両ビューとも前後 1rem に揃う。
+
+   ※ ソース上の空行は LP では実体のある行（≒ 1 行分の高さ）として描画され、
+     読み取りでは消える。両ビューを揃えるにはブロックの前後に空行を置かないこと。
+
+   対象は dataview 系ブロックだけに絞る。通常のコードブロック・tasks・Bases には触らない。
+   ============================================================= */
+
+/* ---- 共通: ブロック本体と中身の段落 ----
+   dv.paragraph() は <p>、dv.list() は <ul> を吐く。既定の --p-spacing /
+   --list-spacing がそのまま乗るので、ブロックの内側だけ 0 にして、
+   間隔の管理を外側（下の 2 ルール）に一本化する。 */
+.block-language-dataviewjs,
+.block-language-dataview {
+  margin-block: 0;
+}
+.block-language-dataviewjs > :is(p, ul, ol):first-child,
+.block-language-dataview  > :is(p, ul, ol):first-child {
+  margin-block-start: 0;
+}
+.block-language-dataviewjs > :is(p, ul, ol):last-child,
+.block-language-dataview  > :is(p, ul, ol):last-child {
+  margin-block-end: 0;
+}
+
+/* ---- 読み取りビュー: 包みに 1rem ----
+   包みは [1] のとおり .el-div。将来 Obsidian 側の差し替え方が変わって
+   .el-pre になっても効くよう、両方を対象にしておく。
+   隣接要素（段落・見出し・他ブロック）の margin と相殺（margin collapsing）
+   されるので、実際の見た目は常に 1rem に収束する。 */
+.markdown-preview-view :is(.el-div, .el-pre):has(> .block-language-dataviewjs),
+.markdown-preview-view :is(.el-div, .el-pre):has(> .block-language-dataview) {
+  margin-block: var(--p-spacing);
+}
+
+/* ---- Live Preview: 同じ 1rem をウィジェット自身に持たせる ----
+   LP の隣接要素は .cm-line で、既定では margin を持たない（[3]）。
+   相殺に頼れないぶん、ウィジェット側で上下 1rem を確定させる。 */
+.markdown-source-view.mod-cm6 .cm-embed-block:is(.cm-lang-dataviewjs, .cm-lang-dataview) {
+  margin-block: var(--p-spacing);
+  padding: 0;
+}
+
+/* 例外: 直後が見出し行のときだけ二重になる。
+   section-headings.css が LP の見出し行に margin-top: var(--p-spacing) を
+   入れており、.cm-line は .cm-content の兄弟なので相殺されず 2rem になる。
+   読み取り側は margin collapsing で 1rem に収まるので、こちらを 0 にして揃える。 */
+.markdown-source-view.mod-cm6 .cm-embed-block:is(.cm-lang-dataviewjs, .cm-lang-dataview)
+  + .cm-line:is(.HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
+                .HyperMD-header-4, .HyperMD-header-5, .HyperMD-header-6) {
+  margin-top: 0;
+}

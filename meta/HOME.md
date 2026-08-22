@@ -9,7 +9,10 @@ const path = `journal/daily/${day.format("YYYY-MM-DD")}.md`;
 const exists = app.vault.getAbstractFileByPath(path) !== null;
 dv.paragraph(`${exists ? "📄" : "➕"} [[${path}|${day.format("YYYY-MM-DD (ddd)")}]]`);
 ```
+
 ![[MEMO]]
+
+##### [[DropZone]]
 
 ## Issues
 
@@ -39,7 +42,6 @@ hide on completion
 
 ## Documents
 
-##### [[DropZone]]
 ![[documents.base]]
 
 %%以下自由編集%%

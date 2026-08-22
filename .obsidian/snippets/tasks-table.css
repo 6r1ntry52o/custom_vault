@@ -2,7 +2,7 @@
    Tasks プラグインのクエリ結果をテーブル風に整列させる
    （チェックボックスはクリックで元ファイルを書き換え可能なまま）
 
-   列: [☑] [📅 期限日] [⏩ 延期] [タスク内容] [ファイル] [📝 編集]
+   列: [☑] [優先度] [📅 期限日] [⏩ 延期] [タスク内容] [ファイル] [📝 編集]
    対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
 
    ---- 構造の前提（Tasks プラグインの DOM）----
@@ -27,11 +27,12 @@
   /* 列幅。好みで調整 */
   grid-template-columns:
     auto               /* 1 チェックボックス */
-    auto                /* 2 期限日 📅（日付の実幅ぶんだけ取る） */
-    auto               /* 3 延期 ⏩ */
-    minmax(0, 1fr)      /* 4 タスク内容（余りを全部もらう） */
-    minmax(0, 12em)     /* 5 ファイル（短い名前なら詰まる。上限だけ決める） */
-    1.4em;              /* 6 編集 📝 */
+    auto               /* 2 優先度 🔺⏫🔼🔽⏬（付いた行が無ければ自然に幅 0） */
+    auto               /* 3 期限日 📅（日付の実幅ぶんだけ取る） */
+    auto               /* 4 延期 ⏩ */
+    minmax(0, 1fr)     /* 5 タスク内容（余りを全部もらう） */
+    minmax(0, 12em)    /* 6 ファイル（短い名前なら詰まる。上限だけ決める） */
+    1.4em;             /* 7 編集 📝 */
   column-gap: 0.2em;
   row-gap: 0;
   margin: 0 0 0 0;   /* 上マージン 0 = 見出しとタスクの間を詰める */
@@ -79,14 +80,14 @@
 }
 
 /* ⏩ とタスク内容の間の縦罫線。
-   li 自身の ::before をグリッドアイテムとして 4 列目（タスク内容）の
+   li 自身の ::before をグリッドアイテムとして 5 列目（タスク内容）の
    左端に置き、幅 0 ＋ border-left で 1px の線にする。列幅は auto や 1fr で
    決まるため位置を数値で指定できないが、この方法なら常に列境界に乗る。
    align-self: stretch で行の高さいっぱいに伸ばし、上下は li のパディング
    ぶん（0.12em）マイナスマージンで食い出させて、上下の横罫線まで届かせる。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before {
   content: "";
-  grid-column: 4;
+  grid-column: 5;
   grid-row: 1;
   justify-self: start;
   align-self: stretch;
@@ -118,17 +119,17 @@
   justify-self: center;
 }
 
-/* 2〜4列目: [📅 期限日][（延期の列は空ける）][タスク内容] */
+/* 2〜5列目: [優先度][📅 期限日][（延期の列は空ける）][タスク内容] */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text {
   display: grid;
   grid-template-columns: subgrid;
-  grid-column: 2 / 5;
+  grid-column: 2 / 6;
   grid-row: 1;
   align-items: start;
   align-content: start;
   min-width: 0;
   overflow-wrap: anywhere;
-  /* この箱は 2〜4 列目（⏩ の列を含む）を覆う。さらにプラグインの
+  /* この箱は 2〜5 列目（⏩ の列を含む）を覆う。さらにプラグインの
      styles.css が .tasks-list-text に position: relative を当てているため、
      静的配置の .task-extras より前面に描かれ、⏩ のクリックを奪ってしまう。
      箱自体の当たり判定を切り、葉要素だけに戻す（.task-extras と対称）。 */
@@ -137,8 +138,55 @@
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text > * {
   pointer-events: auto;
 }
-.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-due {
+/* 優先度。Tasks は " 🔺" のように先頭に半角スペースを付けて書き出すが、
+   グリッドアイテムはブロック化されるので行頭の空白は除去される。
+   通常（normal）の優先度では componentToString() が空文字を返すため、
+   期限日と同じく span 自体が生成されず、このセルは空のまま残る。 */
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-priority {
   grid-column: 1;
+  grid-row: 1;
+  justify-self: center;
+  white-space: nowrap;
+  /* 絵文字は行ボックスより背が高く出がちなので、他セルと同じ箱に押し込む */
+  font-size: 0.9em;
+  line-height: var(--tasks-line-box);
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* クリックで優先度メニューが開くのは JS が動いている ul だけ。
+   JS 無しで cursor:pointer を出すと「押せそうなのに無反応」になるので、
+   data-due-picker（JS が付ける印）がある時だけポインタにする。 */
+.block-language-tasks ul.plugin-tasks-query-result[data-due-picker] .tasks-list-text > .task-priority {
+  cursor: pointer;
+}
+
+/* 優先度が normal の行に JS が挿すプレースホルダ。
+   Tasks は normal（"3"）でも li に data-task-priority="normal" を付けるので、
+   その属性で「絵文字が出ない行」を特定できる。
+   中身が空なので、放っておくと幅 0 になり当たり判定が消える。編集列と同じ
+   1.4em を確保して、絵文字ありの行と列幅が揃うようにする。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: stretch;
+  text-align: center;
+  min-width: 1.4em;
+  font-size: 0.9em;
+  line-height: var(--tasks-line-box);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.25;
+  transition: opacity 0.1s ease-out;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder::after {
+  content: "·";
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"]:hover > .tasks-list-text > .tasks-priority-placeholder {
+  opacity: 0.7;
+}
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-due {
+  grid-column: 2;
   grid-row: 1;
   white-space: nowrap;
   font-size: var(--tasks-small);
@@ -154,19 +202,19 @@
   font-size: 0;
 }
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-description {
-  grid-column: 3;
+  grid-column: 4;
   grid-row: 1;
   padding-left: 0.2em;   /* 縦罫線と本文の間の余白（⏩ 側と同じ量） */
 }
-/* 優先度・繰り返し・開始日など、明示配置していない要素は本文の列に流し、
+/* 繰り返し・開始日など、明示配置していない要素は本文の列に流し、
    2 行目以降へ送る（延期ボタン用の細い列に落ちて潰れるのを防ぐ） */
-.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-due):not(.task-description) {
-  grid-column: 3;
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-priority):not(.task-due):not(.task-description) {
+  grid-column: 4;
   grid-row: 2;
   font-size: var(--tasks-small);
 }
 
-/* 3・5・6列目: [⏩ 延期][ファイル][📝 編集]
+/* 4・6・7列目: [⏩ 延期][ファイル][📝 編集]
    列だけ指定して行を省くと破綻する。自動配置は DOM 順に前へ進むだけで
    戻れないため、.task-extras の DOM 順（urgency → backlink → edit →
    postpone）だと、最後の postpone が左の 1 列目に戻れず次の行へ落ちる。
@@ -177,7 +225,7 @@
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .task-extras {
   display: grid;
   grid-template-columns: subgrid;
-  grid-column: 3 / -1;
+  grid-column: 4 / -1;
   grid-row: 1;
   align-items: start;
   align-content: start;
@@ -297,12 +345,58 @@
 }
 
 /* ------------------------------------------------------------
-   最下部のタスク件数（"3 tasks"）を右寄せにする。
-   プラグインは div.task-count として出力するので、ブロック要素として
-   text-align で寄せられる。
+   タスク件数（"3 tasks"）を最下部からツールバー行へ移し、
+   🔽 フィルタボックスのすぐ左に置く。
+
+   ---- 本当の親は .block-language-tasks ではない ----
+   QueryRenderChild.renderResults() は
+
+     let i = Ge("div", this.containerEl);        // ← クラスなしの div
+     yield this.queryResultsRenderer.render(e, r, i);
+     this.containerEl.firstChild.replaceWith(i); // 描画のたび丸ごと差し替え
+
+   と、毎回新しい無名 div を作ってその中に描画し、既存の子と入れ替える。
+   さらに renderer 側は render() で addToolbar(i) → renderQueryResult(..., i)、
+   addTaskCount() は this.content(= i) へ出力する。よって実 DOM は
+
+     div.block-language-tasks
+       └ div                        ← この無名 div が並べ替えの対象
+           ├ div.plugin-tasks-toolbar
+           ├ ul.plugin-tasks-query-result   (group by 時は見出し等も)
+           └ div.task-count
+
+   となり、.block-language-tasks の直下の子は無名 div ただ 1 つ。
+   ここを flex-wrap コンテナにし、件数だけ order で前へ送ると
+   1 行目が [3 tasks][🔽 Filter…][📋]、2 行目以降が結果リストになる。
+
+   :has(> .task-count) で絞るのは、ライブプレビューで Obsidian が足す
+   div.edit-block-button など無関係な div を巻き込まないため。
+   件数を隠す設定（hide task count）のときは何も起きず既定のままになる。
 ------------------------------------------------------------ */
-.block-language-tasks .task-count {
-  text-align: right;
+.block-language-tasks > div:has(> .task-count) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+/* 件数以外（ツールバー・見出し・結果リスト）は 1 行を占有させて折り返す。
+   ツールバーだけは件数と同じ行に残したいので下で auto 幅に戻す。 */
+.block-language-tasks > div:has(> .task-count) > * {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+.block-language-tasks > div:has(> .task-count) > .plugin-tasks-toolbar {
+  flex: 0 1 auto;
+  order: 0;
+}
+.block-language-tasks > div:has(> .task-count) > .task-count {
+  order: -1;            /* ツールバー（order:0）より前 = 左 */
+  flex: 0 0 auto;
+  margin-left: auto;    /* 件数＋ツールバーの塊を右端へ寄せる */
+  margin-right: var(--size-4-2);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1;
 }
 
 /* ------------------------------------------------------------
@@ -344,4 +438,167 @@
 .block-language-tasks ul.plugin-tasks-query-result:first-child {
   margin-top: 0;
   padding-top: 0;
+}
+
+/* ============================================================
+   期日が無い行：空いた期日セルをクリックして日付を設定できるようにする
+
+   ---- なぜこの形になるか ----
+   Tasks の QueryResultsRenderer.taskToHtml() は
+
+     let l = serializer.componentToString(task, shortMode, component);
+     if (l) { ... span を作って .task-due を付け、click で日付ピッカーを開く ... }
+
+   という実装で、期日が無いと componentToString() が空文字を返し if(l) で
+   弾かれる。つまり「空の .task-due が残る」のではなく span 自体が生成
+   されない。CSS は要素を作れず click ハンドラも付けられないので、
+   空白セルに直接ピッカーを生やすことはできない。
+
+   そこで「全行に必ず存在する唯一のクリック可能要素」＝ 📝 編集ボタン
+   (a.tasks-edit) の当たり判定を期日列まで横に伸ばし、空白セルのクリックを
+   📝 に受けさせる。クリックすると Create or edit Task モーダルが開き、
+   その中の Due date 欄で日付を入れられる。
+
+   ---- 期日なし行の判定 ----
+   Tasks は li に data-task-due="today" / "past-3d" / "future-far" 等を
+   付けるが、実装は
+
+     let i = calculator(task, field);
+     i !== "" && (el.dataset[name] = i)
+
+   で、値が空なら属性自体を付けない。よって :not([data-task-due]) が
+   そのまま「期日なし行」になる（:has() 不要）。この属性は hide due date
+   していても hiddenComponents 側のループで付くので判定は常に効く。
+   ============================================================ */
+
+/* ---- ゲートについて ----
+   下の Option A（📝 の当たり判定を期日列まで伸ばす）は、JS が読み込まれて
+   いない時のフォールバック。tasks-due-picker の JS が動いている ul には
+   data-due-picker="on" が付くので、:not([data-due-picker]) で自動的に
+   無効化され、代わりに末尾の .tasks-due-placeholder 側が使われる。 */
+
+/* .task-extras のサブグリッドを 4列目起点 → 3列目（期限日）起点へ広げる。
+   トラックが 1 本増えるので、中の要素の列番号はすべて +1 になる。 */
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras {
+  grid-column: 3 / -1;
+}
+/* 期日が無くても scheduled / start があれば ⏩ は生成される（postpone の
+   表示条件は due ではなく happensDate のいずれかが有効なこと）。
+   出る場合に備えて列番号をずらしておく。 */
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-postpone { grid-column: 2; }
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-backlink { grid-column: 4; }
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > *:not(.tasks-postpone):not(.tasks-backlink):not(.tasks-edit) {
+  grid-column: 4;
+}
+
+/* 📝 をサブグリッド全幅（＝グリッド 2〜6列目）に伸ばし、当たり判定を
+   期日列まで届かせる。ただし単に伸ばすと、共有ルールの
+   overflow:hidden + text-align:center による「1.4em の箱にグリフを収めて
+   中央寄せ」が効かなくなり、📝 の見た目の位置が期日ありの行とズレる。
+   そこで .tasks-edit 自身をもう一段 subgrid にして、::before（＋）を
+   1列目＝期日列、::after（📝、プラグイン既定の content）を 5列目＝
+   グリッドの 6列目に、それぞれ列トラックへ直接置く。
+   これで箱は横に広いまま、グリフの位置と幅は他の行と完全に一致する。 */
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: start;
+  align-content: start;
+  overflow: visible;
+  text-align: initial;
+}
+/* 期日セルに出す入力の手がかり。日付テキストと同じ字送り・行ボックスに揃える。 */
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit::before {
+  content: "＋";
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  font-size: var(--tasks-small);
+  line-height: var(--tasks-line-box);
+  opacity: 0.3;
+  transition: opacity 0.1s ease-out;
+}
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]):hover > .task-extras > .tasks-edit::before {
+  opacity: 0.75;
+}
+/* content は指定しない（プラグインの .tasks-edit:after の 📝 を活かす）。
+   位置と箱だけを、期日ありの行の .tasks-edit と同じ条件に揃える。 */
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit::after {
+  grid-column: 5;
+  grid-row: 1;
+  justify-self: stretch;
+  text-align: center;
+  overflow: hidden;
+  line-height: var(--tasks-line-box);
+}
+
+/* 伸ばした 📝 は DOM 順で .tasks-backlink より後ろ＝前面に描かれるため、
+   そのままだとファイル名リンクのクリックを奪う。backlink を positioned に
+   して前面へ戻す。⏩ は元々 DOM 順が 📝 より後ろなので影響を受けないが、
+   将来 DOM 順が変わっても壊れないよう同じ扱いにしておく。
+   （タスク本文は .tasks-list-text が position:relative を持ち、静的配置の
+     .task-extras より前面に描かれるので、この対策は不要） */
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-backlink,
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-postpone {
+  position: relative;
+  z-index: 1;
+}
+
+/* 狭い画面ではテーブル化そのものを解除しているので、＋ も出さない */
+@media (max-width: 700px) {
+  .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit {
+    display: inline;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit::before {
+    content: none;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit::after {
+    overflow: visible;
+  }
+}
+
+
+/* ============================================================
+   期日が無い行：JS が注入したプレースホルダ（カレンダー直行）
+
+   tasks-due-picker の JS が li.plugin-tasks-list-item:not([data-task-due])
+   の .tasks-list-text 先頭に span.tasks-due-placeholder を挿し込む。
+   クリックすると Tasks プラグイン内蔵の flatpickr カレンダーが直接開く。
+   （JS 側が同じ ul に data-due-picker="on" を付けるので、上の Option A は
+     自動的に止まる）
+   ============================================================ */
+
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not([data-task-due]) > .tasks-list-text > .tasks-due-placeholder {
+  grid-column: 2;
+  grid-row: 1;
+  /* 日付テキストと同じ字送り・行ボックスに揃える */
+  font-size: var(--tasks-small);
+  line-height: var(--tasks-line-box);
+  /* 中身が空なので、放っておくと幅 0 になり当たり判定が消える。
+     他の行の日付（2026-08-23）と同程度の下限を持たせる。列自体が auto なので
+     日付ありの行が 1 つでもあれば、そちらの実幅まで自動で広がる。 */
+  min-width: 10ch;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.3;
+  transition: opacity 0.1s ease-out;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not([data-task-due]) > .tasks-list-text > .tasks-due-placeholder::after {
+  content: "＋";
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not([data-task-due]):hover > .tasks-list-text > .tasks-due-placeholder {
+  opacity: 0.75;
+}
+
+/* 狭い画面ではテーブル化を解除しているので、プレースホルダも畳む */
+@media (max-width: 700px) {
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not([data-task-due]) > .tasks-list-text > .tasks-due-placeholder {
+    min-width: 0;
+    margin-right: 0.4em;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder {
+    display: none;
+  }
 }

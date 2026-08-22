@@ -11,8 +11,7 @@ created: <% tp.file.creation_date("YYYY-MM-DD") %>
 filter by function (task.description.match(/\[\[([^\]|#^]+)/g) || []).some(l => l.slice(2).split('/').pop().trim() === '{{query.file.filenameWithoutExtension}}')
 sort by due
 # group by filename
-# CSS列として揃えるため、他の要素は非表示
-hide priority
+# CSS列として揃えるため、他の要素は非表示（優先度は列として表示する）
 hide recurrence rule
 hide created date
 hide start date

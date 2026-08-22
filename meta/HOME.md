@@ -1,3 +1,7 @@
+%% tasks の結果で期日・優先度セルをクリック編集できるようにする。実装と設計メモは meta/script/tasks-inline-edit.js %%
+```dataviewjs
+await dv.view("meta/script/tasks-inline-edit")
+```
 
 ```dataviewjs
 const day = moment().locale("en"); // 曜日を英語表記（Mon/Tue...）にするため
@@ -18,9 +22,9 @@ dv.paragraph(`${exists ? "📄" : "➕"} [[${path}|${day.format("YYYY-MM-DD (ddd
 not done
 filter by function (task.file.path.includes('db/') && task.file.property('by') === 'me') || task.file.path.includes('journal/')
 sort by due
+sort by priority
 # group by filename
-# 📅期限日と📝編集ボタンを列として揃えるため、他の要素は非表示にする
-hide priority
+# 優先度・📅期限日・📝編集ボタンを列として揃えるため、他の要素は非表示にする
 hide recurrence rule
 hide created date
 hide start date
@@ -31,11 +35,11 @@ hide id
 hide depends on
 hide on completion
 ```
-
+- [[done_tasks]]
 
 ## Documents
 
-###### [[DropZone]]
+##### [[DropZone]]
 ![[documents.base]]
 
 %%以下自由編集%%

@@ -1,7 +1,6 @@
 filters:
   and:
-    - file.path.startsWith("db/")
-    - by == "ai"
+    - file.path.startsWith("db/aigc")
     - done != true
 views:
   - type: table

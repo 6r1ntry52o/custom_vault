@@ -1,7 +1,6 @@
 filters:
   and:
-    - file.path.startsWith("db/")
-    - by == "ext"
+    - file.path.startsWith("db/ext")
     - done != true
 views:
   - type: table
@@ -9,6 +8,4 @@ views:
     order:
       - done
       - file.name
-    sort:
-      - property: file.name
-        direction: ASC
+    sort: []

@@ -49,8 +49,8 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | プラグイン                                                                | 必須度    | 用途                                                                                                   |
 | -------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
 | [Templater](obsidian://show-plugin?id=templater-obsidian)            | **必須** | `meta/template/*.md` の `<% tp.* %>` 展開・フォルダ別の自動テンプレート適用                                              |
-| [Tasks](obsidian://show-plugin?id=obsidian-tasks-plugin)             | **必須** | `HOME.md` の ` ```tasks ` ブロック（`filter by function` 込み）                                               |
-| [Dataview](obsidian://show-plugin?id=dataview)                       | **必須** | `HOME.md` 冒頭の ` ```dataviewjs `（当日のデイリーノートへのリンク）と `member.md` の ` ```dataview `。表形式の一覧は Bases が担うので、Dataview はこの 2 用途のみ |
+| [Tasks](obsidian://show-plugin?id=obsidian-tasks-plugin)             | **必須** | `HOME.md` の ` ```tasks ` ブロック（`filter by function` 込み）。**検証済み v8.3.0** → §2.3 の警告                     |
+| [Dataview](obsidian://show-plugin?id=dataview)                       | **必須** | `HOME.md` の ` ```dataviewjs ` 2 つ（インライン編集・当日のデイリーノートへのリンク／§2.2）と `member.md` の ` ```dataview `。表形式の一覧は Bases が担うので、Dataview はこの 3 用途のみ |
 | [Webpage HTML Export](obsidian://show-plugin?id=webpage-html-export) | 任意     | ノートの HTML 書き出し。`meta/` の動作には無関係                                                                      |
 | Claudian (`realclaudian`)                                            | 任意     | vault 内で Claude を動かす。`meta/` の動作には無関係。`.claudian/` は git 管理外                                         |
 
@@ -113,8 +113,15 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | Codeblocks → **Enable JavaScript Queries** | **ON** | `HOME.md` の ` ```dataviewjs ` ブロックがこれ無しでは描画されない。**端末ごとに ON が要る**（`data.json` は git 管理外） |
 | Codeblocks → Enable Inline JavaScript Queries | 任意 | `meta/` では未使用 |
 
-`HOME.md` **冒頭**の ` ```dataviewjs ` ブロックが、`moment()` で当日を求めて `journal/daily/YYYY-MM-DD.md` への
-リンクを描画する（見出しは付けていない）。ノートが未作成なら `➕`、作成済みなら `📄` が付く。
+`HOME.md` には ` ```dataviewjs ` が **2 つ**ある。どちらも上の設定が ON でないと動かない。
+
+| 位置 | 役割 | OFF のときの症状 |
+| --- | --- | --- |
+| 1 つ目（最上部・非表示） | `dv.view()` で `meta/script/tasks-inline-edit.js` を読み込む（§2.3） | セルを押しても無反応。**見た目は正常なので気づきにくい** |
+| 2 つ目 | 当日のデイリーノートへのリンク | 日付リンクが出ない |
+
+2 つ目は `moment()` で当日を求めて `journal/daily/YYYY-MM-DD.md` へのリンクを描画する（見出しは付けていない）。
+ノートが未作成なら `➕`、作成済みなら `📄` が付く。
 `moment().locale("en")` にしているのは、**曜日を Obsidian の表示言語に依存させず英語（Mon/Tue…）で固定するため**。
 **未作成のリンクをクリックするとその場で作成され**、Templater の Folder Templates（`journal/daily` → `daily.md`）が
 当たって `## Tasks` / `## Log` / `## Note` が入る
@@ -141,6 +148,39 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | --- | --- | --- | --- |
 | `/` | In Progress | `x` | IN_PROGRESS |
 | `-` | Cancelled | ` ` | CANCELLED |
+
+### インライン編集（期日・優先度）
+
+`HOME.md` 最上部の ` ```dataviewjs ` は 1 行だけで、実体は `meta/script/tasks-inline-edit.js`。
+
+```
+await dv.view("meta/script/tasks-inline-edit")
+```
+
+Dataview の `dv.view()` が `.js` を読んで実行する（devtools には `sourceURL` としてこのパスが出る）。
+tasks の結果に次を足す。`tasks-table.css` と対で動く。
+
+| 操作 | 結果 |
+| --- | --- |
+| 期日セル（`＋`）をクリック | Tasks 内蔵のカレンダーが直接開く |
+| 優先度セル（絵文字 / `·`）をクリック | 優先度メニューが開く |
+| 📝 をクリック | 従来どおり編集モーダル |
+
+> **Tasks の内部実装に依存している。** 公開 API が無いため `plugin.queryRenderer` /
+> `htmlQueryRendererParameters.editTaskPencilClickHandler` / `window.flatpickr` を直接掴んでいる。
+> **検証済みは v8.3.0。** 更新して構造が変わると黙って効かなくなる
+> （コンソールに `[tasks-inline-edit] installed` が出なくなり、CSS だけのフォールバック＝
+> 編集モーダル経由に落ちる）。クリックが効かなくなったらまずバージョンを疑う。
+
+> **Obsidian を起動したら、まず `HOME.md` を開くこと。**
+> インストールはセッション 1 回で、`plugin.queryRenderer.addQueryRenderChild` を差し替えて
+> **以降に描画される全 tasks ブロック**に効く（`meta/db/done_tasks.md` なども自動で対象になる）。
+> 逆に **`HOME.md` より先に描画した tasks ブロックは、そのセッション中フックされない**。
+> 効いていない兆候は「優先度セルが無反応」「期日セルがカレンダーではなく編集モーダルを開く」。
+> そのノートを開き直す（再描画する）か、`HOME.md` を開いてから戻れば直る。
+
+> **モバイル**では `require("obsidian")` が使えず優先度メニューが出ないことがある。
+> 画面幅 700px 以下では `tasks-table.css` がテーブル表示自体を解除する。
 
 `HOME.md` の tasks クエリは `db/` 配下で `by: me` のノート、および `journal/` 配下のタスクを拾う。
 `by` プロパティが無い `db/` のノートのタスクは出てこない（`journal/` 配下は `by` に関係なく拾う）。
@@ -193,7 +233,7 @@ Bases の `done` / `halu` 列がチェックボックスにならず文字列と
 
 | スニペット | 役割 |
 | --- | --- |
-| `tasks-table.css` | ` ```tasks ` の結果をテーブル風に整列（`HOME.md` の見た目はこれ前提） |
+| `tasks-table.css` | ` ```tasks ` の結果を 7 列に整列（`[☑][優先度][📅期日][⏩延期][内容][ファイル][📝]`）。インライン編集（§2.3）の当たり判定もここで作る |
 | `section-headings.css` | 見出し・リスト・表の可読性 |
 | `code-vscode-dark.css` | コードブロックを VSCode Dark+ 風に |
 | `dataview-compact.css` | ` ```dataviewjs ` / ` ```dataview ` ブロックの上下余白を 1rem に統一（読み取りビューとライブプレビューで同じ量になるよう揃える。調査結果はファイル冒頭のコメント参照） |
@@ -204,7 +244,8 @@ Bases の `done` / `halu` 列がチェックボックスにならず文字列と
 
 | ファイル | 依存 |
 | --- | --- |
-| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches）+ Dataview（JavaScript Queries）+ `tasks-table.css` + `![[MEMO]]` |
+| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches・**v8.3.0**）+ Dataview（JavaScript Queries）+ `tasks-table.css` + `![[MEMO]]`。最上部の ` ```dataviewjs ` は `meta/script/tasks-inline-edit.js` を読むだけ |
+| `meta/script/tasks-inline-edit.js` | Dataview（`dv.view()`）+ Tasks v8.3.0 の内部実装 + `tasks-table.css`。期日・優先度のインライン編集の実体（§2.3） |
 | `meta/MEMO.md` | なし（`HOME.md` に埋め込まれる走り書き用の空ノート） |
 | `meta/base/db.base` | Bases。`db/` 配下・`status` / `by` / `ai` / `model` / `halu` / `created` |
 | `meta/base/db/documents.base` | Bases。`db == "doc"` |
@@ -223,6 +264,8 @@ Bases の `done` / `halu` 列がチェックボックスにならず文字列と
 1. `meta/HOME.md` を開く → Issues の表（Bases）が描画される → **NG なら Bases（Obsidian ≥1.9）**
 2. 同ノートの Tasks ブロックにエラーが出ない → **NG なら Tasks の Enable custom searches**
 2-b. 同ノート冒頭に当日の日付リンク（`📄` / `➕`）が出る → **NG なら Dataview の Enable JavaScript Queries**（§2.2）
+2-c. Tasks の結果で期日セル（`＋`）→ カレンダー、優先度セル → メニューが出る
+   → **NG なら Dataview の JavaScript Queries（§2.2）か Tasks のバージョン（§2.3）**
 3. **Ctrl+N** で新規ノートを作る（`db/` に作られる）→ frontmatter に `by: me` / `created: <今日>` が入る
    → 空ファイルなら **`Trigger Templater on new file creation` が OFF**（§2.1）
    → 中身が違うなら **Folder Templates のマッピング**（§2.1）

@@ -1,13 +1,14 @@
 ---
 by: me
-status: wip
 created: 2026-08-22
-tags: [meta, setup]
+tags:
+  - meta
+  - setup
 ---
 # meta/ を機能させるためのプラグイン・設定
 
 `meta/` 配下（`HOME.md` / `base/*.base` / `template/*.md`）は、**Obsidian 本体の設定とプラグインが揃って初めて動く**。
-clone 直後は `.obsidian/plugins/` と `.obsidian/workspace.json` と `.obsidian/types.json` が
+clone 直後は `.obsidian/plugins/` と `.obsidian/workspace.json` と `.obsidian/types.json` と `.obsidian/app.json` が
 git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体のインストールと個別設定は手作業**になる。
 
 その手順をここにまとめる。
@@ -32,7 +33,7 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | コアプラグイン | 何に必要か |
 | --- | --- |
 | **Bases** | `meta/base/*.base` の表示すべて。`![[tickets.base]]` などの埋め込みも含む |
-| **プロパティ（Properties）** | `by` / `status` / `db` / `done` / `draft` / `halu` などの frontmatter 編集 UI |
+| **プロパティ（Properties）** | `by` / `status` / `db` / `done` / `halu` などの frontmatter 編集 UI |
 | **バックリンク / アウトゴーイングリンク** | `HOME.md` → `DropZone` 等の導線 |
 | **デイリーノート** | `journal/daily/` の運用（下の §4 で設定が要る） |
 
@@ -49,7 +50,7 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | -------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
 | [Templater](obsidian://show-plugin?id=templater-obsidian)            | **必須** | `meta/template/*.md` の `<% tp.* %>` 展開・フォルダ別の自動テンプレート適用                                              |
 | [Tasks](obsidian://show-plugin?id=obsidian-tasks-plugin)             | **必須** | `HOME.md` の ` ```tasks ` ブロック（`filter by function` 込み）                                               |
-| [Dataview](obsidian://show-plugin?id=dataview)                       | **必須** | `HOME.md` の `## Today`（当日のデイリーノートへのリンク）の ` ```dataviewjs ` ブロック。表形式の一覧は Bases が担うので、Dataview はこの用途のみ |
+| [Dataview](obsidian://show-plugin?id=dataview)                       | **必須** | `HOME.md` 冒頭の ` ```dataviewjs `（当日のデイリーノートへのリンク）と `member.md` の ` ```dataview `。表形式の一覧は Bases が担うので、Dataview はこの 2 用途のみ |
 | [Webpage HTML Export](obsidian://show-plugin?id=webpage-html-export) | 任意     | ノートの HTML 書き出し。`meta/` の動作には無関係                                                                      |
 | Claudian (`realclaudian`)                                            | 任意     | vault 内で Claude を動かす。`meta/` の動作には無関係。`.claudian/` は git 管理外                                         |
 
@@ -59,7 +60,7 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 
 | 設定項目 | 値 | 備考 |
 | --- | --- | --- |
-| Template folder location | `meta/template` | |
+| Template folder location | `meta/template/templater` | 手動挿入（insert template modal）の対象。Folder Templates の参照先とは別物 |
 | Trigger Templater on new file creation | **ON** | **端末ごとに ON が要る**（下記） |
 | Template matching mode | Folder templates | 上を ON にすると現れる |
 | Automatic jump to cursor | OFF | |
@@ -80,14 +81,23 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | `meta/template` | *(空欄)* |
 
 `db` を `default.md` にしているのは、**Ctrl+N（新規ノート＝作成先 `db/`）を `default.md` ベースにするため**。
-`meta/template/db.md`（`status: wip` 付き）は folder template からは外してあり、必要なときにコマンド
-`Templater: Open insert template modal` で手動挿入する。
+
+**Folder Templates と「手動挿入できるテンプレート」は別管理**になっている点に注意。
+
+| | 置き場所 | 中身 |
+| --- | --- | --- |
+| Folder Templates が参照 | `meta/template/*.md` | `default.md` / `daily.md` / `db.md` |
+| 手動挿入（`Templater: Open insert template modal`）の候補 | `meta/template/templater/*.md` | `ai.md` / `me.md` / `member.md` |
+
+`Template folder location` は `meta/template/templater` なので、**挿入モーダルに出るのは `templater/` 配下の 3 つだけ**。
+`meta/template/db.md` は現状 `default.md` と同内容で、folder template からも挿入候補からも外れている（予備）。
 
 > `meta/template` を **空欄で登録するのが要点**。これが無いと、テンプレート自体を新規作成したときに
 > テンプレートが再帰的に適用されて `<% %>` が展開済みで壊れる。
 
-使っている構文は `tp.file.creation_date("YYYY-MM-DD")` / `tp.file.title` / `moment().locale("en").format("YYYY-MM-DD (ddd)")` の 3 つだけ。
-`daily.md` の見出しで `tp.date.now()` ではなく `moment().locale("en")` を使うのは、**曜日を Obsidian の表示言語に依存させず英語（Mon/Tue…）で固定するため**（`HOME.md` の `## Today` と表記を揃える）。
+使っている Templater 構文は `tp.file.creation_date("YYYY-MM-DD")` と `tp.file.title` の 2 つだけ。
+`daily.md` は frontmatter も見出しも持たず、`## Tasks` / `## Log` / `## Note` の 3 見出しのみ（＝ Templater 構文を含まない）。
+日付見出しは作らず、ファイル名（`YYYY-MM-DD`）をそのまま日付として扱う。
 ユーザースクリプト・shell コマンドは使っていないので、`User Scripts folder` と `Shell path` は空のままでよい。
 
 > **`data.json` を手で編集する場合の順番**: Obsidian 起動中に
@@ -103,10 +113,15 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | Codeblocks → **Enable JavaScript Queries** | **ON** | `HOME.md` の ` ```dataviewjs ` ブロックがこれ無しでは描画されない。**端末ごとに ON が要る**（`data.json` は git 管理外） |
 | Codeblocks → Enable Inline JavaScript Queries | 任意 | `meta/` では未使用 |
 
-`HOME.md` の `## Today` は、`moment()` で当日を求めて `journal/daily/YYYY-MM-DD.md` へのリンクを描画する。
-ノートが未作成なら `➕`、作成済みなら `📄` が付く。**未作成のリンクをクリックするとその場で作成され**、
-Templater の Folder Templates（`journal/daily` → `daily.md`）が当たって frontmatter と見出しが入る
+`HOME.md` **冒頭**の ` ```dataviewjs ` ブロックが、`moment()` で当日を求めて `journal/daily/YYYY-MM-DD.md` への
+リンクを描画する（見出しは付けていない）。ノートが未作成なら `➕`、作成済みなら `📄` が付く。
+`moment().locale("en")` にしているのは、**曜日を Obsidian の表示言語に依存させず英語（Mon/Tue…）で固定するため**。
+**未作成のリンクをクリックするとその場で作成され**、Templater の Folder Templates（`journal/daily` → `daily.md`）が
+当たって `## Tasks` / `## Log` / `## Note` が入る
 （＝ §2.1 の `Trigger Templater on new file creation` が ON である必要がある）。
+
+`HOME.md` はこの下で `![[MEMO]]`（`meta/MEMO.md`）を埋め込んでいる。走り書き用の空ノートなので、
+不要なら埋め込み行ごと消してよい。
 
 ### 2.3 Tasks の設定
 
@@ -128,21 +143,25 @@ Templater の Folder Templates（`journal/daily` → `daily.md`）が当たっ�
 | `-` | Cancelled | ` ` | CANCELLED |
 
 `HOME.md` の tasks クエリは `db/` 配下で `by: me` のノート、および `journal/` 配下のタスクを拾う。
-`by` プロパティが無いノートのタスクは出てこない。
+`by` プロパティが無い `db/` のノートのタスクは出てこない（`journal/` 配下は `by` に関係なく拾う）。
+
+`meta/template/templater/member.md` も `filter by function` を使い、**そのノートへのリンクを含むタスク**だけを集める。
+こちらも `Enable custom searches` が ON でないと動かない。
 
 ---
 
 ## 3. プロパティ（frontmatter）の型
 
 `.obsidian/types.json` は **git 管理外**。clone 直後は型が未定義で、
-Bases の `done` / `halu` / `draft` 列がチェックボックスにならず文字列として表示される。
+Bases の `done` / `halu` 列がチェックボックスにならず文字列として表示される。
 
 設定 → プロパティ で、最低限これを設定する（`meta/base/file_property.md` の規約に対応）:
 
 | プロパティ          | 型                         |
 | -------------- | ------------------------- |
-| `by`           | テキスト（`me` / `ai` / `ext`） |
-| `db`           | テキスト（`doc` / `issue`）     |
+| `by`           | テキスト（`me` / `ai` / `ext`）  |
+| `db`           | テキスト（`doc` / `issue` / `member`） |
+| `status`       | テキスト（`wip` / `done` など）   |
 | `created`      | 日付                        |
 | `due`          | 日付                        |
 | `done`         | チェックボックス                  |
@@ -156,18 +175,14 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 
 ## 4. Obsidian 本体の設定
 
-`.obsidian/app.json`（git 管理下）で入る分:
-
-| 設定 | 値 |
-| --- | --- |
-| 新規ノートの作成場所 | 指定フォルダ → `db` |
-| リンク更新 | 自動更新 ON |
-| 読みやすい行の長さ | OFF |
-
-手で入れる分:
+`.obsidian/app.json` は **git 管理外**（[[.gitignore]] の `/.obsidian/*` に対して whitelist していない）。
+つまり下記はすべて **端末ごとに手で設定する**。
 
 | 設定 | 値 | 理由 |
 | --- | --- | --- |
+| ファイル → 新規ノートの作成場所 | 指定フォルダ → `db` | Ctrl+N が `db/` に作られる前提。Templater の Folder Templates（`db`）もこれに合わせてある |
+| ファイル → リンク更新 | 自動更新 ON | ノート移動時に `![[tickets.base]]` などの埋め込みリンクを壊さない |
+| エディタ → 読みやすい行の長さ | OFF | Bases の表と ` ```tasks ` テーブルを幅いっぱいに出すため |
 | デイリーノート → 新規ファイルの場所 | `journal/daily` | `daily-notes.json` は管理外。既定のままだと vault 直下に作られ、Templater の `journal/daily` テンプレートも当たらない |
 | デイリーノート → テンプレートファイルの場所 | *(空欄)* | テンプレート適用は Templater の Folder Templates 側で行う。両方設定すると二重適用になる |
 
@@ -189,13 +204,16 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 
 | ファイル | 依存 |
 | --- | --- |
-| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches）+ Dataview（JavaScript Queries）+ `tasks-table.css` |
+| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches）+ Dataview（JavaScript Queries）+ `tasks-table.css` + `![[MEMO]]` |
+| `meta/MEMO.md` | なし（`HOME.md` に埋め込まれる走り書き用の空ノート） |
 | `meta/base/db.base` | Bases。`db/` 配下・`status` / `by` / `ai` / `model` / `halu` / `created` |
 | `meta/base/db/documents.base` | Bases。`db == "doc"` |
 | `meta/base/db/tickets.base` | Bases。`db == "issue"` + `done`(checkbox) + `due`(date) |
-| `meta/base/db/DropZone/*.base` | Bases。`by == me/ai/ext` かつ `draft != true` |
+| `meta/base/db/member.base` | Bases。`db == "member"` |
+| `meta/base/db/DropZone/*.base` | Bases。`by == me/ai/ext` かつ `done != true` |
 | `meta/base/db/DropZone/DropZone.md` | 上記 3 つの `.base` の埋め込み |
-| `meta/template/*.md` | Templater |
+| `meta/template/*.md` | Templater（Folder Templates が参照） |
+| `meta/template/templater/*.md` | Templater（手動挿入用）。`member.md` は Tasks + Dataview にも依存 |
 | `meta/base/file_property.md` | プロパティ規約の定義（読み物。プラグイン依存なし） |
 
 ---
@@ -204,14 +222,14 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 
 1. `meta/HOME.md` を開く → Issues の表（Bases）が描画される → **NG なら Bases（Obsidian ≥1.9）**
 2. 同ノートの Tasks ブロックにエラーが出ない → **NG なら Tasks の Enable custom searches**
-2-b. 同ノートの `## Today` に当日の日付リンクが出る → **NG なら Dataview の Enable JavaScript Queries**（§2.2）
+2-b. 同ノート冒頭に当日の日付リンク（`📄` / `➕`）が出る → **NG なら Dataview の Enable JavaScript Queries**（§2.2）
 3. **Ctrl+N** で新規ノートを作る（`db/` に作られる）→ frontmatter に `by: me` / `created: <今日>` が入る
    → 空ファイルなら **`Trigger Templater on new file creation` が OFF**（§2.1）
    → 中身が違うなら **Folder Templates のマッピング**（§2.1）
 4. `journal/daily/` に新規ノートを作る → `## Tasks` / `## Log` / `## Note` が入る
-5. `meta/template/` に新規ノートを作る → **何も展開されない**（空欄登録が効いている）
+5. `meta/template/`（`templater/` 配下も含む）に新規ノートを作る → **何も展開されない**（空欄登録が効いている）
 6. `DropZone.md` を開く → by_ai / by_ext / by_me の 3 表が出る
-7. `db/` のノートに `draft: true` を入れる → DropZone の表から消える（`draft` がチェックボックス型になっているか）
+7. `db/` のノートに `done: true` を入れる → DropZone の表から消える（`done` がチェックボックス型になっているか）
 
 ---
 
@@ -222,4 +240,5 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 | `.obsidian/plugins/*/data.json` | API キー・ローカルパスなどの秘密が混入しうる。だから**この文書に手順として書く** |
 | `.obsidian/workspace.json` | 開くだけで変化する。ペイン配置は端末ごとに違う |
 | `.obsidian/types.json` | 管理外（§3 を手で設定する） |
+| `.obsidian/app.json` | 管理外（§4 を手で設定する） |
 | `.obsidian/plugins/` 本体 | プラグインは各自コミュニティストアからインストール |

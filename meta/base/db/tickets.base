@@ -9,7 +9,7 @@ views:
       - done
       - file.name
     columnSize:
-      note.done: 61
+      note.done: 78
   - type: table
     name: done
     filters:

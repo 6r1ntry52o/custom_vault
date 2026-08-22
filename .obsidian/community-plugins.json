@@ -1,5 +1,7 @@
 [
   "dataview",
   "obsidian-tasks-plugin",
-  "realclaudian"
+  "realclaudian",
+  "webpage-html-export",
+  "templater-obsidian"
 ]

@@ -4,7 +4,6 @@ status: wip
 created: 2026-08-22
 tags: [meta, setup]
 ---
-
 # meta/ を機能させるためのプラグイン・設定
 
 `meta/` 配下（`HOME.md` / `base/*.base` / `template/*.md`）は、**Obsidian 本体の設定とプラグインが揃って初めて動く**。
@@ -46,13 +45,13 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 
 `.obsidian/community-plugins.json` は「一覧」だけを持つ。**本体は各端末でインストールする**。
 
-| プラグイン | 必須度 | 用途 |
-| --- | --- | --- |
-| [Templater](obsidian://show-plugin?id=templater-obsidian) | **必須** | `meta/template/*.md` の `<% tp.* %>` 展開・フォルダ別の自動テンプレート適用 |
-| [Tasks](obsidian://show-plugin?id=obsidian-tasks-plugin) | **必須** | `HOME.md` の ` ```tasks ` ブロック（`filter by function` 込み） |
-| [Dataview](obsidian://show-plugin?id=dataview) | 任意 | 現状 `meta/` からは未使用。Bases が同等の役割を担っている。将来の `dataviewjs` 用に有効化しているだけ |
-| [Webpage HTML Export](obsidian://show-plugin?id=webpage-html-export) | 任意 | ノートの HTML 書き出し。`meta/` の動作には無関係 |
-| Claudian (`realclaudian`) | 任意 | vault 内で Claude を動かす。`meta/` の動作には無関係。`.claudian/` は git 管理外 |
+| プラグイン                                                                | 必須度    | 用途                                                                                                   |
+| -------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| [Templater](obsidian://show-plugin?id=templater-obsidian)            | **必須** | `meta/template/*.md` の `<% tp.* %>` 展開・フォルダ別の自動テンプレート適用                                              |
+| [Tasks](obsidian://show-plugin?id=obsidian-tasks-plugin)             | **必須** | `HOME.md` の ` ```tasks ` ブロック（`filter by function` 込み）                                               |
+| [Dataview](obsidian://show-plugin?id=dataview)                       | **必須** | `HOME.md` の `## Today`（当日のデイリーノートへのリンク）の ` ```dataviewjs ` ブロック。表形式の一覧は Bases が担うので、Dataview はこの用途のみ |
+| [Webpage HTML Export](obsidian://show-plugin?id=webpage-html-export) | 任意     | ノートの HTML 書き出し。`meta/` の動作には無関係                                                                      |
+| Claudian (`realclaudian`)                                            | 任意     | vault 内で Claude を動かす。`meta/` の動作には無関係。`.claudian/` は git 管理外                                         |
 
 ### 2.1 Templater の設定
 
@@ -87,14 +86,29 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 > `meta/template` を **空欄で登録するのが要点**。これが無いと、テンプレート自体を新規作成したときに
 > テンプレートが再帰的に適用されて `<% %>` が展開済みで壊れる。
 
-使っている構文は `tp.file.creation_date("YYYY-MM-DD")` / `tp.file.title` / `tp.date.now("YYYY-MM-DD (ddd)")` の 3 つだけ。
+使っている構文は `tp.file.creation_date("YYYY-MM-DD")` / `tp.file.title` / `moment().locale("en").format("YYYY-MM-DD (ddd)")` の 3 つだけ。
+`daily.md` の見出しで `tp.date.now()` ではなく `moment().locale("en")` を使うのは、**曜日を Obsidian の表示言語に依存させず英語（Mon/Tue…）で固定するため**（`HOME.md` の `## Today` と表記を揃える）。
 ユーザースクリプト・shell コマンドは使っていないので、`User Scripts folder` と `Shell path` は空のままでよい。
 
 > **`data.json` を手で編集する場合の順番**: Obsidian 起動中に
 > `.obsidian/plugins/templater-obsidian/data.json` を書き換えたら、**先に Obsidian（または Templater）を再読み込み**する。
 > 先に設定 UI のトグルを触ると、メモリ上の旧設定で `data.json` が上書きされて編集が消える。
 
-### 2.2 Tasks の設定
+### 2.2 Dataview の設定
+
+設定 → Dataview：
+
+| 設定項目 | 値 | 理由 |
+| --- | --- | --- |
+| Codeblocks → **Enable JavaScript Queries** | **ON** | `HOME.md` の ` ```dataviewjs ` ブロックがこれ無しでは描画されない。**端末ごとに ON が要る**（`data.json` は git 管理外） |
+| Codeblocks → Enable Inline JavaScript Queries | 任意 | `meta/` では未使用 |
+
+`HOME.md` の `## Today` は、`moment()` で当日を求めて `journal/daily/YYYY-MM-DD.md` へのリンクを描画する。
+ノートが未作成なら `➕`、作成済みなら `📄` が付く。**未作成のリンクをクリックするとその場で作成され**、
+Templater の Folder Templates（`journal/daily` → `daily.md`）が当たって frontmatter と見出しが入る
+（＝ §2.1 の `Trigger Templater on new file creation` が ON である必要がある）。
+
+### 2.3 Tasks の設定
 
 設定 → Tasks：
 
@@ -113,7 +127,7 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 | `/` | In Progress | `x` | IN_PROGRESS |
 | `-` | Cancelled | ` ` | CANCELLED |
 
-`HOME.md` のクエリは `db/` 配下で `by: me` のノート、および `journal/` 配下のタスクを拾う。
+`HOME.md` の tasks クエリは `db/` 配下で `by: me` のノート、および `journal/` 配下のタスクを拾う。
 `by` プロパティが無いノートのタスクは出てこない。
 
 ---
@@ -167,6 +181,7 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 | `tasks-table.css` | ` ```tasks ` の結果をテーブル風に整列（`HOME.md` の見た目はこれ前提） |
 | `section-headings.css` | 見出し・リスト・表の可読性 |
 | `code-vscode-dark.css` | コードブロックを VSCode Dark+ 風に |
+| `dataview-compact.css` | ` ```dataviewjs ` / ` ```dataview ` ブロックの上下余白を 1rem に統一（読み取りビューとライブプレビューで同じ量になるよう揃える。調査結果はファイル冒頭のコメント参照） |
 
 ---
 
@@ -174,7 +189,7 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 
 | ファイル | 依存 |
 | --- | --- |
-| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches）+ `tasks-table.css` |
+| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches）+ Dataview（JavaScript Queries）+ `tasks-table.css` |
 | `meta/base/db.base` | Bases。`db/` 配下・`status` / `by` / `ai` / `model` / `halu` / `created` |
 | `meta/base/db/documents.base` | Bases。`db == "doc"` |
 | `meta/base/db/tickets.base` | Bases。`db == "issue"` + `done`(checkbox) + `due`(date) |
@@ -189,6 +204,7 @@ Bases の `done` / `halu` / `draft` 列がチェックボックスにならず�
 
 1. `meta/HOME.md` を開く → Issues の表（Bases）が描画される → **NG なら Bases（Obsidian ≥1.9）**
 2. 同ノートの Tasks ブロックにエラーが出ない → **NG なら Tasks の Enable custom searches**
+2-b. 同ノートの `## Today` に当日の日付リンクが出る → **NG なら Dataview の Enable JavaScript Queries**（§2.2）
 3. **Ctrl+N** で新規ノートを作る（`db/` に作られる）→ frontmatter に `by: me` / `created: <今日>` が入る
    → 空ファイルなら **`Trigger Templater on new file creation` が OFF**（§2.1）
    → 中身が違うなら **Folder Templates のマッピング**（§2.1）

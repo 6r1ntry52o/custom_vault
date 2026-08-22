@@ -7,6 +7,6 @@ views:
   - type: table
     name: by_me
     order:
-      - draft
+      - done
       - file.name
     sort: []

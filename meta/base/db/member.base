@@ -1,20 +1,18 @@
 filters:
   and:
     - file.path.startsWith("db/")
-    - db == "doc"
+    - db == "member"
 views:
   - type: table
-    name: documents
+    name: members
     order:
       - done
       - file.name
       - by
       - file.links
     sort:
-      - property: file.links
+      - property: file.name
         direction: ASC
-      - property: created
-        direction: DESC
     columnSize:
       file.name: 232
   - type: table

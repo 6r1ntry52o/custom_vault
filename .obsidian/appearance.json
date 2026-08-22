@@ -2,6 +2,10 @@
   "theme": "moonstone",
   "baseFontSize": 16,
   "enabledCssSnippets": [
-    "section-headings"
-  ]
+    "section-headings",
+    "code-vscode-dark",
+    "tasks-table",
+    "dataview-compact"
+  ],
+  "accentColor": "#e60000"
 }

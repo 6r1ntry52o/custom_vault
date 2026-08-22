@@ -1,0 +1,35 @@
+filters:
+  and:
+    - file.path.startsWith("db/")
+    - by == "ai"
+    - done != true
+views:
+  - type: table
+    name: by_ai
+    order:
+      - done
+      - file.name
+    sort: []
+    columnSize:
+      note.status: 77
+  - type: table
+    name: 未確認
+    filters:
+      and:
+        - status != "done"
+    order:
+      - file.name
+      - status
+      - ai
+      - model
+      - created
+  - type: table
+    name: halu
+    filters:
+      and:
+        - halu == true
+    order:
+      - file.name
+      - ai
+      - model
+      - created

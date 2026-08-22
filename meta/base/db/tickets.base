@@ -1,0 +1,22 @@
+filters:
+  and:
+    - db == "issue"
+views:
+  - type: table
+    name: Issues
+    order:
+      - due
+      - done
+      - file.name
+    columnSize:
+      note.done: 61
+  - type: table
+    name: done
+    filters:
+      and:
+        - done == true
+  - type: table
+    name: not_done
+    filters:
+      and:
+        - done != true

@@ -1,0 +1,12 @@
+filters:
+  and:
+    - file.path.startsWith("db/")
+    - by == "me"
+    - done != true
+views:
+  - type: table
+    name: by_me
+    order:
+      - draft
+      - file.name
+    sort: []

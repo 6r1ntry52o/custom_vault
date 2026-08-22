@@ -1,0 +1,28 @@
+filters:
+  and:
+    - file.path.startsWith("db/")
+    - db == "doc"
+views:
+  - type: table
+    name: documents
+    order:
+      - done
+      - file.name
+      - by
+    sort:
+      - property: created
+        direction: DESC
+  - type: table
+    name: draft
+    filters:
+      and:
+        - status != "done"
+    order:
+      - draft
+      - file.name
+      - status
+      - by
+      - created
+    sort:
+      - property: created
+        direction: ASC

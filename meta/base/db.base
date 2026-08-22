@@ -1,0 +1,30 @@
+filters:
+  and:
+    - file.path.startsWith("db/")
+views:
+  - type: table
+    name: database
+    order:
+      - file.name
+      - status
+      - by
+      - ai
+      - model
+      - halu
+      - created
+    sort:
+      - property: created
+        direction: DESC
+  - type: table
+    name: 要対応
+    filters:
+      and:
+        - status != "done"
+    order:
+      - file.name
+      - status
+      - by
+      - created
+    sort:
+      - property: created
+        direction: ASC

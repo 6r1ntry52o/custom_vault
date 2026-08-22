@@ -1,0 +1,92 @@
+/* ============================================================
+   Tasks プラグインのクエリ結果をテーブル風に整列させる
+   （チェックボックスはクリックで元ファイルを書き換え可能なまま）
+
+   列: [チェックボックス] [タスク本文] [ファイル(バックリンク)]
+   対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
+   ============================================================ */
+
+.block-language-tasks ul.plugin-tasks-query-result {
+  display: grid;
+  /* 列幅。好みで調整（1列目=チェックボックス, 2列目=本文, 3列目=ファイル名） */
+  grid-template-columns: 1.7em minmax(0, 1fr) minmax(8em, 16em);
+  column-gap: 0;
+  align-items: baseline;
+  margin: 0.4em 0;
+  padding-left: 0;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+/* li を「透明化」して、その子要素（チェックボックス/本文/バックリンク）を
+   直接グリッドのセルとして並べる = 列が揃う */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item {
+  display: contents;
+}
+
+/* 各セル共通：行の区切り線とパディング */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > * {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 0.35em 0.8em 0.35em 0;
+}
+
+/* 1列目: チェックボックス（テーマの負マージンを打ち消す） */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > input.task-list-item-checkbox {
+  margin: 0;
+  align-self: center;
+  justify-self: center;
+}
+
+/* 2列目: タスク本文（期日・タグ・優先度などもここに入る） */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 3列目: ファイル名（1行に収めて溢れたら … ） */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-backlink {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+/* 行ホバー */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:hover > * {
+  background: var(--background-modifier-hover);
+}
+
+/* 完了タスクを薄く */
+.block-language-tasks ul.plugin-tasks-query-result > li[data-task-status-type="DONE"] > .tasks-list-text {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/* 狭い画面ではテーブル化を解除して通常のリストに戻す */
+@media (max-width: 700px) {
+  .block-language-tasks ul.plugin-tasks-query-result {
+    display: block;
+    border-top: none;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item {
+    display: list-item;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > * {
+    border-bottom: none;
+    padding: 0;
+  }
+}
+
+/* ------------------------------------------------------------
+   応用: 期日を独立した列にしたい場合は上の grid-template-columns を
+     1.7em minmax(0,1fr) 7em minmax(8em,16em)
+   に変えたうえで、以下のコメントを外す。
+   （タグ・優先度・繰り返しはクエリ側で hide tags / hide priority /
+     hide recurrence rule として非表示にしておくこと）
+------------------------------------------------------------ */
+/*
+.block-language-tasks ul.plugin-tasks-query-result > li > .tasks-list-text { display: contents; }
+.block-language-tasks ul.plugin-tasks-query-result .task-description { grid-column: 2; }
+.block-language-tasks ul.plugin-tasks-query-result .task-due        { grid-column: 3; font-size: .85em; white-space: nowrap; }
+.block-language-tasks ul.plugin-tasks-query-result .tasks-backlink  { grid-column: 4; }
+*/

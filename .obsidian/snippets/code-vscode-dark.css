@@ -4,7 +4,7 @@
    - 背景を黒（#1e1e1e）に固定（ライトモードでも黒）
    - トークン配色を VSCode Dark+ に合わせる（読み取りビュー = Prism）
    - Live Preview（CM6）も同じ黒背景に統一
-   - インラインコードは対象外（本文中で浮かないよう別扱い）
+   - インラインコードは無彩色（等幅＋チップ下地のみ。色は付けない）
    ============================================================= */
 
 /* VSCode Dark+ の配色定義 */
@@ -24,36 +24,45 @@
   --vsc-regex:    #d16969;   /* 正規表現（赤） */
 }
 
-/* インラインコード `x` 用のカラー（本文中で埋もれない配色） */
-/* ライト：白背景で沈まない濃いめのローズ＋薄いグレー下地 */
+/* ---- インラインコード `x` ----
+   色は付けない。Obsidian 既定も --code-normal: var(--text-normal) で無彩色。
+   等幅フォント＋チップ下地＋0.88em の 3 つで本文と十分に区別できるため、
+   色相を足す必要がない。
+
+   本文フロー中の彩色はリンクだけに残す。以前のクリムゾン #c7254e は
+   OKLCh 彩度 0.195 とリンク色 (--text-accent 既定 0.195) と同じ強さで
+   主張しており、この Vault では色付きテキストの 82% がインラインコード
+   だったため、「色 = クリックできる」という手がかりが機能していなかった。
+
+   枠線も付けない。Obsidian 既定が --code-border-width: 0px で、
+   ライブプレビュー側 (.cm-s-obsidian span.cm-inline-code) にも枠線が無い。
+   読み取りビューだけ枠を持つと 2 つのビューで見え方がズレる。
+   区別は 等幅フォント＋チップ下地＋--code-size の 3 つで足りる。 */
 .markdown-preview-view,
 .markdown-source-view.mod-cm6 {
-  --inline-code-fg: #c7254e;
+  --inline-code-fg: var(--text-normal);
   --inline-code-bg: rgba(0, 0, 0, 0.06);
-  --inline-code-border: rgba(0, 0, 0, 0.10);
 }
-/* ダーク：黒背景で浮かぶ明るいローズ＋薄い白下地 */
 .theme-dark .markdown-preview-view,
 .theme-dark .markdown-source-view.mod-cm6 {
-  --inline-code-fg: #e5919f;
   --inline-code-bg: rgba(255, 255, 255, 0.10);
-  --inline-code-border: rgba(255, 255, 255, 0.14);
 }
 
-/* 読み取りビュー：pre 内は対象外（コードブロックはそのまま） */
+/* 読み取りビュー：pre 内は対象外（コードブロックはそのまま）。
+   下の Live Preview 側と同じ値に揃えてある。 */
 .markdown-rendered :not(pre) > code {
   color: var(--inline-code-fg) !important;
   background: var(--inline-code-bg) !important;
-  border: 1px solid var(--inline-code-border);
-  border-radius: 4px;
-  padding: 0.1em 0.35em;
-  font-size: 0.88em;
+  border: none;
+  border-radius: var(--code-radius);
+  padding: 0.1em 0.2em;
+  font-size: var(--code-size);
 }
 /* Live Preview：インラインコード（cm-inline-code） */
 .markdown-source-view.mod-cm6 .cm-inline-code {
   color: var(--inline-code-fg) !important;
   background: var(--inline-code-bg);
-  border-radius: 4px;
+  border-radius: var(--code-radius);
   padding: 0.1em 0.2em;
 }
 
@@ -218,9 +227,14 @@
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-codeblock {
   caret-color: #aeafad;
 }
-/* 選択範囲も黒背景で見えるように少し明るく */
+/* 選択範囲も黒背景で見えるように少し明るく。
+   ── 重要 ──
+   ファイル内検索で「カーソルが合っているヒット」は選択状態になる。
+   選択時に文字色を明色へ固定しておかないと、下のヒット用ルールや
+   トークン色と重なったとき濃紺背景に暗い文字が乗って真っ黒に潰れる。 */
 .markdown-source-view.mod-cm6 .HyperMD-codeblock ::selection {
-  background: #264f78;   /* VSCode の選択色 */
+  background: #264f78;   /* VSCode の選択色（濃紺） */
+  color: #f8f8f2 !important;   /* 選択文字は必ず明色 */
 }
 
 /* =============================================================
@@ -263,4 +277,117 @@
 .markdown-rendered pre > button.copy-code-button:hover {
   color: #ffffff !important;
   background: rgba(255, 255, 255, 0.24);
+}
+
+/* =============================================================
+   ファイル内検索（Cmd/Ctrl+F）のヒットがコードブロック内で潰れる問題
+   ── 仕様（Obsidian 本体 obsidian.asar の app.css / app.js を直接解析して確定）──
+   1) Live Preview（CM6）の Cmd+F ヒットに付くクラスは
+      「.obsidian-search-match-highlight」である。
+      本体実装（document-search）が editor.addHighlights /
+      removeHighlights("obsidian-search-match-highlight") を呼んでおり、
+      CM6 でも旧 CM でもこのクラスが使われる。
+      ※ .cm-searchMatch / .cm-searchMatch-selected は @codemirror/search の
+        ベーステーマ由来（Vim モード等）で、Obsidian の Cmd+F では付かない。
+   2) 本体の標準スタイル（実物）：
+        .cm-s-obsidian span.obsidian-search-match-highlight {
+          box-shadow: 0 0 0px 3px var(--text-accent);
+          mix-blend-mode: var(--highlight-mix-blend-mode);
+          border-radius: 2px;
+        }
+      そして  .theme-light { --highlight-mix-blend-mode: darken; }
+              .theme-dark  { --highlight-mix-blend-mode: lighten; }
+   ── なぜ真っ黒に潰れたか（真因）──
+   ライトテーマでは mix-blend-mode: darken がヒット span 全体に掛かる。
+   darken は「背面とのチャンネルごとの最小値」合成なので、白い本文背景では
+   自然に見えるが、当スニペットの暗いコード背景 #262626 の上では
+   文字色・背景色に何を指定しても min() で #262626 相当へ潰れて不可視になる。
+   色や背景を !important で上書きしても無効だったのはこのため
+   （ブレンドは「描画後」に合成されるため、色指定では回避できない）。
+   ── 対策 ──
+   コードブロック内のヒットに限り mix-blend-mode: normal を !important で強制し、
+   その上で「不透明アンバー背景 × 白文字 × ゴールド枠」を固定する。
+   通常本文のヒットは Obsidian 標準のまま（ブレンドは白背景でこそ綺麗）。
+   ============================================================= */
+
+/* Live Preview：コードブロック内の Cmd+F ヒット
+   （リスト内のインデント済みフェンスブロックも行に .HyperMD-codeblock が
+     付く＝暗背景が効いていることが証拠なので、このスコープで届く）
+   トークン色ルール（0,4,0 の !important）より高い詳細度
+   （span 付き 0,4,1）で文字色を確実に白へ上書きする。 */
+.markdown-source-view.mod-cm6 .HyperMD-codeblock span.obsidian-search-match-highlight,
+.cm-s-obsidian .HyperMD-codeblock span.obsidian-search-match-highlight,
+.cm-s-obsidian .cm-hmd-indented-code.obsidian-search-match-highlight {
+  mix-blend-mode: normal !important;                 /* ← 真因の darken 合成を解除 */
+  background-color: #7a4d00 !important;              /* 不透明アンバー（白文字が映える） */
+  color: #ffffff !important;                         /* 白文字 */
+  box-shadow: 0 0 0 2px #ffb300 !important;          /* ゴールド枠でヒットを明示 */
+  border-radius: 2px;
+  text-shadow: none !important;
+}
+/* ヒット span の内側にトークン span が入れ子になる場合も白に統一 */
+.markdown-source-view.mod-cm6 .HyperMD-codeblock span.obsidian-search-match-highlight span,
+.cm-s-obsidian .HyperMD-codeblock span.obsidian-search-match-highlight span {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+/* 保険：@codemirror/search 系（Vim の / 検索等）がコード内で使われた場合も同配色 */
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-searchMatch,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock span.cm-searchMatch span {
+  mix-blend-mode: normal !important;
+  background-color: #7a4d00 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 2px #ffb300 !important;
+  border-radius: 2px;
+}
+.markdown-source-view.mod-cm6 .HyperMD-codeblock .cm-searchMatch-selected,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock span.cm-searchMatch-selected span {
+  background-color: #b35a00 !important;
+  box-shadow: 0 0 0 2px #ff9d2e !important;
+}
+
+/* =============================================================
+   読み取りビュー
+   ── 仕様（本体実測）──
+   ・Cmd+F のヒットは「.search-highlight > div」のオーバーレイ矩形
+     （テキストは書き換えない。box-shadow 枠 + mix-blend-mode のみ）。
+   ・サイドバー検索からのジャンプ先ハイライトは「.is-flashing」で、
+     こちらは background: var(--text-highlight-bg) !important +
+     mix-blend-mode: var(--highlight-mix-blend-mode) が本体で指定される
+     → コードの暗背景上では darken で潰れるため blend 解除＋不透明色。
+   ============================================================= */
+.markdown-preview-view pre .is-flashing,
+.markdown-rendered pre .is-flashing,
+.markdown-rendered pre .is-flashing * {
+  mix-blend-mode: normal !important;                 /* darken 合成を解除 */
+  background-color: #7a4d00 !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+/* Cmd+F オーバーレイ矩形：darken だと暗背景上で枠ごと消えるので
+   ブレンドを解除し、ゴールド枠で常に視認できるようにする。
+   （オーバーレイは文字を覆わない透明矩形なので色は枠のみ指定） */
+.markdown-rendered .search-highlight > div {
+  mix-blend-mode: normal !important;
+  box-shadow: 0 0 0 2px #ffb300 !important;
+  opacity: 0.85 !important;
+}
+.markdown-rendered .search-highlight > div.is-active {
+  box-shadow: 0 0 0 3px #ff9d2e !important;
+  opacity: 1 !important;
+}
+
+/* =============================================================
+   左サイドバーの「検索」パネル結果 内でコードのヒットが潰れる問題
+   ── 仕様 ──
+   検索結果パネルの一致テキストは .search-result-file-matched-text。
+   標準は半透明の下地（--text-highlight-bg）だけを敷き、下地色に依存する。
+   コード文脈の結果でも潰れないよう不透明アンバー×白文字で固定する。
+   ============================================================= */
+.search-result-file-matched-text {
+  background-color: #7a4d00 !important;
+  color: #ffffff !important;
+  border-radius: 2px;
+  text-shadow: none !important;
 }

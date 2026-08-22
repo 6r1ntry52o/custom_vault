@@ -3,113 +3,345 @@
    ノートを見やすくするスニペット（見出し / リスト / 表）
    ※ コードブロック・インラインコード・diff の配色は
      code-vscode-dark.css が担当
-   - H1: 黒の太い下線    - H2: 灰色の下線
-   - H3: 左＋下に水色    - H4/H5: 左に水色バー    - H6: 先頭マーカー
    読み取りビュー / ライブプレビュー 両対応・ライト/ダーク両対応
+
+   ---- 見出しの設計方針 ----
+   隣り合うレベルが必ず 2 つ以上の点で違うように、手がかりを 5 つ重ねる。
+     1. サイズ   --h1-size 〜 --h6-size を上書き（Obsidian 既定は約10%刻みで弱い）
+     2. 太さ     --h1-weight 〜 --h6-weight（既定の 700/680/…/600 は実効的に不可視）
+     3. 装飾     帯 → バー＋下線 → 下線 → バー → 三角 → タグ（形で識別する）
+     4. 彩度     --sec-c1 〜 -c6。上位ほど濃い。[外観 > アクセントカラー]
+                 に追従し、コントラスト比が単調減少するよう明度で刻む
+   見出しの上下の余白は Obsidian 既定に任せ、--p-spacing / --heading-spacing は
+   上書きしない。レベル差はサイズ・太さ・装飾・彩度の 4 つで表現する。
+   左端は全レベル --sec-indent で揃え、段差インデントは付けない。
+   Obsidian の読み取りビューはセクション本文を包む要素を持たない
+   （div.el-h3 と div.el-p がフラットな兄弟）ので CSS では見出ししか
+   下げられず、本文が見出しより左に出て「セクションの外」に見えるため。
+   深さは サイズ / 太さ / 装飾 / 彩度 の 4 つだけで表現する。
    ============================================================= */
 
-/* ---- カラー定義（ライト＝濃いめ / ダーク＝明るめ） ---- */
+/* ---- カラー / 寸法の定義（ライト＝濃いめ / ダーク＝明るめ） ---- */
 .markdown-preview-view,
 .markdown-source-view.mod-cm6 {
-  --sec-black: #222222;   /* H1 下線 */
-  --sec-gray:  #8a8f98;   /* H2 下線 */
-  --sec-cyan:  #0e93b8;   /* H3-H6 のバー/マーカー・表のライン */
+  /* ---- 階層カラーランプ（アクセントカラー追従）----
+     Obsidian は [設定 > 外観 > アクセントカラー] の選択色を HSL に分解し、
+     document.body のインラインスタイルへ次の 3 つを書き込む:
+         --accent-h  例 "258"（単位なし）
+         --accent-s  例 "88%"
+         --accent-l  例 "66%"
+     未設定（既定）のときは removeProperty されるだけなので、
+     app.css の body { --accent-h: 258; --accent-s: 88%; --accent-l: 66% }
+     にフォールバックする。
+
+     ここでは色相と彩度だけを借り、明度はこちらで固定して刻む。
+     アクセントの明度をそのまま使うと、淡い色を選ばれた時点で
+     上位レベルのコントラストが確保できなくなるため。
+     同一の H・S で明度を単調に上げれば相対輝度も必ず単調に上がるので、
+     どんなアクセント色でも階層の順序が逆転しない。
+     （全72色相 × 6彩度 × 両テーマで単調性を検証済み・破綻 0 件）
+
+     既定の紫 hsl(258, 88%) での白地コントラスト比:
+       13.33 → 10.84 → 8.48 → 6.05 → 3.89 → 2.55 */
+  --sec-hs: var(--accent-h), var(--accent-s);
+  --sec-c1: hsl(var(--sec-hs), 30%);   /* H1 上下線 */
+  --sec-c2: hsl(var(--sec-hs), 38%);   /* H2 バー＋下線 */
+  --sec-c3: hsl(var(--sec-hs), 47%);   /* H3 下線 */
+  --sec-c4: hsl(var(--sec-hs), 58%);   /* H4 バー */
+  --sec-c5: hsl(var(--sec-hs), 68%);   /* H5 マーカー ▸ */
+  --sec-c6: hsl(var(--sec-hs), 77%);   /* H6 タグの塗り */
+  /* H1 の帯はランプ中央を薄く敷く。テーマの地色に追従させる */
+  --sec-h1-bg: color-mix(in srgb, var(--sec-c3) 13%, var(--background-primary));
+
+  /* 表：ヘッダ行の下地もアクセント追従。全色相で本文文字とのコントラストは
+     最悪でも 11.0:1 を確保できることを確認済み。 */
+  --sec-table-head-bg: color-mix(in srgb, var(--sec-c3) 18%, var(--background-primary));
+  --sec-table-pad: 0.35em 0.7em;
+  --table-header-background: var(--sec-table-head-bg);
+
+  --sec-indent: 0.7rem;   /* 全見出し共通の文字左端（全レベル同じ深さ）。
+                             rem なので字サイズに依らず揃う */
+  --sec-bar:    5px;      /* H2 の左バーの太さ */
+  --sec-bar-4:  3px;      /* H4 の左バーの太さ（H2 より細くして階層差を出す） */
+
+  /* H5：マーカー三角の寸法。文字 ▸ ではなく border で描くため、
+     フォントのサイドベアリング（字面の左余白）に左右されず、
+     墨の左端を x=0 ちょうどに置ける（Win / Mac どちらでも同じ）。
+     ＝ H2/H4 の左バー・H1 の帯・H3 の下線と同じ左端に揃う。
+     三角は --sec-indent の内側（0 〜 幅）に収める前提。文字との間隔は
+     --sec-indent から三角の幅を引いた残りが自動的に効く。 */
+  --sec-h5-mark-w: 0.42em;  /* 三角の幅（＝奥行き）。--sec-indent 未満に保つ */
+  --sec-h5-mark-h: 0.62em;  /* 三角の高さ */
+
+  /* H6：タグ（荷札）風見出しの寸法。すべて em なので H6 の字サイズに追従する */
+  --sec-tag-h:     1.9em;   /* タグの高さ */
+  --sec-tag-point: 0.85em;  /* 左のとがり（三角）の幅 */
+  --sec-tag-hole:  0.42em;  /* 穴の直径 */
+  /* 塗りは表ヘッダと同じ考え方で、地色に --sec-c6 を薄く混ぜる。
+     ベタ塗り＋白抜き文字にすると、アクセント色の色相によっては
+     コントラストが 2:1 台まで落ちるため採らない（例：黄系）。 */
+  --sec-tag-bg: color-mix(in srgb, var(--sec-c6) 30%, var(--background-primary));
+
+  /* サイズ比を既定の約 1.10 倍刻みから約 1.15 倍刻みへ広げる */
+  --h1-size: 1.90em;  --h1-weight: 800;
+  --h2-size: 1.60em;  --h2-weight: 700;
+  --h3-size: 1.36em;  --h3-weight: 700;
+  --h4-size: 1.18em;  --h4-weight: 600;
+  --h5-size: 1.04em;  --h5-weight: 600;
+  --h6-size: 0.94em;  --h6-weight: 600;
 }
 .theme-dark .markdown-preview-view,
 .theme-dark .markdown-source-view.mod-cm6 {
-  --sec-black: #e6e6e6;
-  --sec-gray:  #a7adb8;
-  --sec-cyan:  #38c6f0;
+  /* ダークは明度を反転させる（地が暗いので、明るいほど目立つ）。
+     既定の紫での #1e1e1e 地コントラスト比:
+       10.54 → 7.48 → 5.18 → 3.26 → 2.25 → 1.86 */
+  --sec-c1: hsl(var(--sec-hs), 88%);
+  --sec-c2: hsl(var(--sec-hs), 80%);
+  --sec-c3: hsl(var(--sec-hs), 72%);
+  --sec-c4: hsl(var(--sec-hs), 62%);
+  --sec-c5: hsl(var(--sec-hs), 52%);
+  --sec-c6: hsl(var(--sec-hs), 45%);
+  --sec-h1-bg: color-mix(in srgb, var(--sec-c3) 16%, var(--background-primary));
+  /* ダークは地が暗いぶん少し濃く。文字とのコントラストは最悪 6.5:1 */
+  --sec-table-head-bg: color-mix(in srgb, var(--sec-c3) 20%, var(--background-primary));
+  --sec-tag-bg: color-mix(in srgb, var(--sec-c6) 34%, var(--background-primary));
 }
 
 /* =============================================================
    見出し（セクション）
    ============================================================= */
-/* 行間・スクロール余白（読み取りビュー）。
-   下線付きの H1-H3 は行間を詰めて文字と下線を近づける。 */
 .markdown-rendered :is(h1, h2, h3, h4, h5, h6) {
   scroll-margin-top: 1rem;
 }
 .markdown-rendered :is(h1, h2, h3) { line-height: 1.15; }
 .markdown-rendered :is(h4, h5, h6) { line-height: 1.35; }
 
-/* H1：黒の太い下線 */
+/* 上下の余白は Obsidian 既定のまま。ここでは一切上書きしない。
+   読み取り     : h1〜h6 に margin-block: var(--p-spacing)（既定 1rem）。
+                  段落・リスト・表の直後だけ margin-top: var(--heading-spacing)（同 2.5rem）。
+   Live Preview : .cm-line.HyperMD-header に padding-top: var(--p-spacing)（同 1rem）。 */
+
+/* H1：アクセント色を薄く敷いた帯＋最も濃いアクセントの上下線（全幅） */
 .markdown-rendered h1,
 .HyperMD-header-1 {
-  margin-bottom: 0.2rem;
-  padding-bottom: 0.3em;
-  border-bottom: 3px solid var(--sec-black);
-  font-weight: 800;
+  box-sizing: border-box;
+  padding: 0.28em var(--sec-indent);
+  background: var(--sec-h1-bg);
+  border-top: 3px solid var(--sec-c1);
+  border-bottom: 3px solid var(--sec-c1);
 }
 
-/* H2：灰色の下線 */
+/* H2：左バー（濃いアクセント）＋全幅下線 */
 .markdown-rendered h2,
 .HyperMD-header-2 {
-  margin-bottom: 0.18rem;
-  padding-bottom: 0.25em;
-  border-bottom: 2px solid var(--sec-gray);
-  font-weight: 700;
+  box-sizing: border-box;
+  padding: 0.08em 0 0.12em calc(var(--sec-indent) - var(--sec-bar));
+  border-left: var(--sec-bar) solid var(--sec-c2);
+  border-bottom: 2px solid var(--sec-c2);
 }
 
-/* H3：左＋下部に水色 */
+/* H3：細い下線のみ（標準アクセント・バーなし） */
 .markdown-rendered h3,
 .HyperMD-header-3 {
-  margin-bottom: 0.15rem;
-  padding: 0.1em 0 0.2em 0.3em;
-  border-left: 4px solid var(--sec-cyan);
-  border-bottom: 1px solid var(--sec-cyan);
-  font-weight: 700;
+  box-sizing: border-box;
+  padding: 0.08em 0 0.14em var(--sec-indent);
+  border-bottom: 1px solid var(--sec-c3);
 }
 
-/* H4：左だけ水色（太実線バー） */
+/* H4：左バーのみ（やや淡いアクセント・下線なし） */
 .markdown-rendered h4,
 .HyperMD-header-4 {
-  margin-bottom: 0.15rem;
-  padding-left: 0.3em;
-  border-left: 4px solid var(--sec-cyan);
-  font-weight: 700;
+  box-sizing: border-box;
+  padding: 0.02em 0 0.02em calc(var(--sec-indent) - var(--sec-bar-4));
+  border-left: var(--sec-bar-4) solid var(--sec-c4);
 }
 
-/* H5：左だけ水色（細い破線バー） */
+/* H5：バーをやめてマーカー三角に切り替える。
+   H5 はマーカー、H6 はタグ形で、最下層 2 つを形の違いで見分ける。
+   マーカーは絶対配置で x=0 に置くので、文字の左端は H1〜H4 と同じ
+   --sec-indent のまま。三角はその左側の余白に収まる。 */
 .markdown-rendered h5,
 .HyperMD-header-5 {
-  margin-bottom: 0.12rem;
-  padding-left: 0.3em;
-  border-left: 3px dashed var(--sec-cyan);
-  color: var(--text-normal);
-  font-weight: 700;
+  position: relative;
+  box-sizing: border-box;
+  padding-left: var(--sec-indent);
 }
 
-/* H6：バーの代わりに先頭マーカー＋薄い文字 */
-.markdown-rendered h6,
-.HyperMD-header-6 {
-  margin-bottom: 0.12rem;
-  color: var(--text-muted);
-  font-weight: 700;
+/* H6：タグ（荷札）風。左にとがりと穴を付けて、文字幅ぶんだけ塗る。
+   本文より小さいサイズは維持し、最下層であることをサイズと淡い塗りで示す。
+   とがりの分だけ左へずらしてあるので、見た目の左端は他レベルと揃う。 */
+.markdown-rendered h6 {
+  /* 上下マージンは完全に 0。Obsidian 側の
+     `margin-block: var(--p-spacing)` と、段落・リスト・表の直後に効く
+     `margin-top: var(--heading-spacing)` は、変数を要素側で 0 に潰して
+     無効化する（消費側ルールの詳細度に勝つ必要がない）。 */
+  --p-spacing: 0;
+  --heading-spacing: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  position: relative;
+  display: inline-block;
+  /* inline-block はベースライン揃えなので、下にディセンダ分の行間が残る。
+     top 揃えにして行ボックスをタグの高さぴったりにする */
+  vertical-align: top;
+  box-sizing: border-box;
+  height: var(--sec-tag-h);
+  line-height: var(--sec-tag-h);   /* height と揃えて文字を上下中央に置く */
+  /* とがりの先端を x=0 に置く（H2/H4 の左バー・H5 の三角と同じ左端）。
+     ::before を 1px 本体に食い込ませてある分だけ引き戻す */
+  margin-left: calc(var(--sec-tag-point) - 1px);
+  padding: 0 0.85em 0 0.7em;
+  background: var(--sec-tag-bg);
+  color: var(--text-normal);
   letter-spacing: 0.03em;
 }
-/* H6 マーカー（読み取り／Live Preview 共通） */
-.markdown-rendered h6::before,
-.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-6::before {
-  content: "» ";
-  color: var(--sec-cyan);
-  font-weight: 800;
+/* 左のとがり（三角）。border-width の上下合計を高さに一致させる */
+.markdown-rendered h6::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  /* 1px 本体に食い込ませる。em 由来の端数が四捨五入されると
+     三角と本体の境に髪の毛ほどの隙間が出るため、重ねて潰す。 */
+  left: calc(1px - var(--sec-tag-point));
+  border-style: solid;
+  border-width: calc(var(--sec-tag-h) / 2) var(--sec-tag-point) calc(var(--sec-tag-h) / 2) 0;
+  border-color: transparent var(--sec-tag-bg) transparent transparent;
+}
+/* 紐を通す穴。地色で抜くので、テーマの背景色に自動追従する */
+.markdown-rendered h6::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - var(--sec-tag-hole) / 2);
+  left: calc(-1 * var(--sec-tag-point) / 3);
+  width: var(--sec-tag-hole);
+  height: var(--sec-tag-hole);
+  border-radius: 50%;
+  background: var(--background-primary);
 }
 
-/* 読み取りビュー限定：下線を文字に近づける（下パディング圧縮）。
-   Live Preview（.HyperMD-header-*）は元の余白のまま。 */
-.markdown-rendered h1,
-.markdown-rendered h2 { padding-bottom: 0.05em; }
-.markdown-rendered h3 { padding-bottom: 0.08em; }
+/* H5 のマーカー（読み取り／Live Preview 共通）。H6 はタグ側で ::before を使う。
+   文字 ▸ を置くとフォントごとに字面の左余白が変わり、H6 のとがりと
+   左端が揃わない（Win / Mac でもずれる）。border で三角を描き、
+   墨の左端を x=0 に固定し、H2/H4 の左バーや H6 タグの先端と揃える。 */
+.markdown-rendered h5::before,
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-5::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  border-style: solid;
+  /* 上 / 右 / 下 / 左：左辺だけ塗って右向きの三角にする */
+  border-width: calc(var(--sec-h5-mark-h) / 2) 0 calc(var(--sec-h5-mark-h) / 2) var(--sec-h5-mark-w);
+  border-color: transparent transparent transparent var(--sec-c5);
+}
 
-/* Live Preview 限定：CM6 は .cm-line の左パディングを後から注入する
-   ため、詳細度＋!important で左余白を確実に効かせ、線と文字の重なりを防ぐ。 */
-.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-3,
-.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-4,
-.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-5 {
+/* ---- Live Preview（CM6）の余白確定 ----
+   Obsidian は `.cm-s-obsidian .cm-line.HyperMD-header` に
+   `padding-top: var(--p-spacing)` を詳細度 (0,3,0) で当ててくる。
+   これは上のショートハンド `.HyperMD-header-N` (0,1,0) より強いため、
+   放置すると H1 の帯が上下非対称になり、H2/H4 の左バーも上に伸びる。
+   ここで (0,4,0) の詳細度に揃えて padding を確定させ、
+   既定と同じ量の余白を margin-top: var(--p-spacing) で取り直す
+   （padding-top を既定のまま使うと H1 の帯や H2/H4 の左バーが上へ伸びるため）。
+   左パディングは CM6 が後から注入してくるので !important を維持。 */
+.markdown-source-view.mod-cm6 .cm-line:is(
+  .HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
+  .HyperMD-header-4, .HyperMD-header-5, .HyperMD-header-6) {
   box-sizing: border-box;
-  padding-left: 0.3em !important;
   text-indent: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-1 {
+  margin-top: var(--p-spacing);
+  padding-top: 0.28em;
+  padding-bottom: 0.28em;
+  padding-left: var(--sec-indent) !important;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-2 {
+  margin-top: var(--p-spacing);
+  padding-top: 0.08em;
+  padding-bottom: 0.12em;
+  padding-left: calc(var(--sec-indent) - var(--sec-bar)) !important;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-3 {
+  margin-top: var(--p-spacing);
+  padding-top: 0.08em;
+  padding-bottom: 0.14em;
+  padding-left: var(--sec-indent) !important;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-4 {
+  margin-top: var(--p-spacing);
+  padding-top: 0.02em;
+  padding-bottom: 0.02em;
+  padding-left: calc(var(--sec-indent) - var(--sec-bar-4)) !important;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-5 {
+  margin-top: var(--p-spacing);
+  padding-left: var(--sec-indent) !important;
+}
+/* Live Preview のタグ。行要素なので inline-block/flex にはせず（CM6 の行測定と
+   カーソル位置がずれる）、display:block のまま width:fit-content で文字幅に詰める。 */
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-6 {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  height: var(--sec-tag-h);
+  line-height: var(--sec-tag-h);
+  /* H6 だけは上下マージンを 0 にする（他レベルは --p-spacing で取り直す）。
+     padding-top / bottom は上の (0,4,0) のルールで既に 0。 */
+  margin-top: 0;
+  margin-bottom: 0;
+  /* とがりの先端を x=0 に置く（H2/H4 の左バー・H5 の三角と同じ左端）。
+     ::before を 1px 本体に食い込ませてある分だけ引き戻す */
+  margin-left: calc(var(--sec-tag-point) - 1px);
+  padding-right: 0.85em !important;
+  padding-left: 0.7em !important;
+  background: var(--sec-tag-bg);
+  letter-spacing: 0.03em;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-6::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  /* 1px 本体に食い込ませる。em 由来の端数が四捨五入されると
+     三角と本体の境に髪の毛ほどの隙間が出るため、重ねて潰す。 */
+  left: calc(1px - var(--sec-tag-point));
+  border-style: solid;
+  border-width: calc(var(--sec-tag-h) / 2) var(--sec-tag-point) calc(var(--sec-tag-h) / 2) 0;
+  border-color: transparent var(--sec-tag-bg) transparent transparent;
+}
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header-6::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - var(--sec-tag-hole) / 2);
+  left: calc(-1 * var(--sec-tag-point) / 3);
+  width: var(--sec-tag-hole);
+  height: var(--sec-tag-hole);
+  border-radius: 50%;
+  background: var(--background-primary);
+}
+
+/* =============================================================
+   インラインタイトル（本文上部のファイル名表示）
+   [設定 > 外観 > インラインタイトルを表示] が ON のときの div.inline-title。
+   H1 と同じ帯を当てて、文書名と最上位見出しを同じ格として見せる。
+   クラスは読み取り／Live Preview 共通なので 1 ルールで両ビューに効く。
+   ※ Live Preview の inline-title は contenteditable（クリックでリネーム）。
+     display / content / 疑似要素はキャレットとリネーム操作を壊すので触らず、
+     塗り・罫線・余白・字だけを当てる。
+   ============================================================= */
+.markdown-preview-view .inline-title,
+.markdown-source-view.mod-cm6 .inline-title {
+  box-sizing: border-box;
+  font-size: var(--h1-size);
+  font-weight: var(--h1-weight);
+  line-height: 1.15;
+  padding: 0.28em var(--sec-indent);
+  background: var(--sec-h1-bg);
+  border-top: 3px solid var(--sec-c1);
+  border-bottom: 3px solid var(--sec-c1);
 }
 
 /* =============================================================
@@ -134,28 +366,50 @@
 }
 
 /* =============================================================
-   表：枠線＋パディング、ヘッダは太字＋下に濃いシアンのライン、
-   行ホバーで強調。読み取りビュー / Live Preview 両対応。
+   表：セル罫線＋ヘッダ行にアクセント色の下地。行ホバーで強調。
+
+   ※ 読み取りビューと Live Preview はテーブルの実装が別物。
+       読み取り : .markdown-rendered td/th に直接 padding
+       Live Prev: Obsidian が .cm-table-widget th/td へ padding: 0 を
+                  詳細度 (0,3,1) で当て、内側の .table-cell-wrapper に
+                  padding を持たせる
+     th/td にだけ padding を書くと (0,2,1) で負けて読み取り側にしか
+     効かず、両ビューで余白がズレる。適用先を分けて同じ値を渡すこと。
    ============================================================= */
 .markdown-preview-view table,
 .markdown-source-view.mod-cm6 table {
   border-collapse: collapse;
   line-height: 1.5;
 }
+
+/* 罫線は両ビューとも th/td に乗る（ウィジェットは border を触らない）。
+   本文色ベースなので薄い既定色より視認性が高く、両テーマで馴染む。 */
 .markdown-preview-view th,
 .markdown-preview-view td,
 .markdown-source-view.mod-cm6 th,
 .markdown-source-view.mod-cm6 td {
-  /* 本文色ベースの罫線。薄い既定色より視認性を上げつつ
-     ライト/ダーク両方で自然に馴染む濃さに調整。 */
   border: 1px solid color-mix(in srgb, var(--text-normal) 22%, transparent);
-  padding: 0.35em 0.7em;
 }
+
+/* パディングは適用先が違うので分けて書き、同じ値を渡す */
+.markdown-preview-view th,
+.markdown-preview-view td {
+  padding: var(--sec-table-pad);
+}
+.markdown-source-view.mod-cm6 .cm-table-widget .table-cell-wrapper {
+  padding: var(--sec-table-pad);
+}
+
+/* ヘッダ：罫線での強調をやめ、セルの下地をアクセント色にする。
+   --table-header-background は `.markdown-rendered thead tr` でしか
+   消費されず Live Preview のウィジェットに届く保証がないため、
+   変数の設定に加えて両ビューの th を明示指定する。 */
 .markdown-preview-view thead th,
 .markdown-source-view.mod-cm6 thead th {
-  border-bottom: 2px solid var(--sec-cyan);
+  background-color: var(--sec-table-head-bg);
   font-weight: 700;
 }
+
 .markdown-preview-view tbody tr:hover td,
 .markdown-source-view.mod-cm6 tbody tr:hover td {
   background: var(--background-modifier-hover);

@@ -31,6 +31,7 @@ Thumbs.db
 
 # テスト用（テンプレに組み込まない・名前のとおり）
 /9999_*/
+/custom_vaultに組み込まないDir/
 
 # Syncthing 残骸（2026-08-19 に Syncthing は廃止・git clone 方式へ）
 /.stfolder/

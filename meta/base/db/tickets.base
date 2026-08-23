@@ -1,6 +1,7 @@
 filters:
   and:
     - db == "issue"
+    - file.path.startsWith("db/issue")
 views:
   - type: table
     name: Issues

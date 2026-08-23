@@ -117,7 +117,7 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 
 | 位置 | 役割 | OFF のときの症状 |
 | --- | --- | --- |
-| 1 つ目（最上部・非表示） | `dv.view()` で `meta/script/tasks-inline-edit.js` を読み込む（§2.3） | セルを押しても無反応。**見た目は正常なので気づきにくい** |
+| 1 つ目（最上部・非表示） | インライン編集の実装本体を直書きしてある（§2.3） | セルを押しても無反応。**見た目は正常なので気づきにくい** |
 | 2 つ目 | 当日のデイリーノートへのリンク | 日付リンクが出ない |
 
 2 つ目は `moment()` で当日を求めて `journal/daily/YYYY-MM-DD.md` へのリンクを描画する（見出しは付けていない）。
@@ -151,14 +151,18 @@ git 管理外（[[.gitignore]] 参照）なので、**プラグイン本体の�
 
 ### インライン編集（期日・優先度）
 
-`HOME.md` 最上部の ` ```dataviewjs ` は 1 行だけで、実体は `meta/script/tasks-inline-edit.js`。
-
-```
-await dv.view("meta/script/tasks-inline-edit")
-```
-
-Dataview の `dv.view()` が `.js` を読んで実行する（devtools には `sourceURL` としてこのパスが出る）。
+実装本体は `HOME.md` 最上部の ` ```dataviewjs ` ブロックに**直書き**してある（約 270 行）。
 tasks の結果に次を足す。`tasks-table.css` と対で動く。
+
+> **なぜ `.js` を別ファイルにしないか（2026-08-23 変更）**
+> 以前は `meta/script/tasks-inline-edit.js` を `dv.view()` で読んでいたが、
+> **Obsidian Sync は既定で md ／画像／音声／動画／PDF しか同期せず、`.js` は「その他のファイルタイプ」＝初期 OFF**。
+> そのためモバイルにファイルが届かず、**表は正常に出るのにセルを押しても無反応**という気づきにくい欠落になった。
+> md に直書きすれば同期設定に依存しない。`dv.view()` は `.js` しか読めない（md のコードブロックは読めない）ので、
+> 「別ファイルのまま md 化」はできない。
+>
+> 制約2つ: ①このブロックは **tasks ブロックより先に実行される必要がある**ので HOME.md の最上部から動かさない。
+> ②ブロック内のコメントに**バッククォート3つを書かない**（そこでコードフェンスが閉じて以降が本文として描画される）。
 
 | 操作 | 結果 |
 | --- | --- |
@@ -244,8 +248,7 @@ Bases の `done` / `halu` 列がチェックボックスにならず文字列と
 
 | ファイル | 依存 |
 | --- | --- |
-| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches・**v8.3.0**）+ Dataview（JavaScript Queries）+ `tasks-table.css` + `![[MEMO]]`。最上部の ` ```dataviewjs ` は `meta/script/tasks-inline-edit.js` を読むだけ |
-| `meta/script/tasks-inline-edit.js` | Dataview（`dv.view()`）+ Tasks v8.3.0 の内部実装 + `tasks-table.css`。期日・優先度のインライン編集の実体（§2.3） |
+| `meta/HOME.md` | Bases（`tickets.base` / `documents.base` の埋め込み）+ Tasks（custom searches・**v8.3.0**）+ Dataview（JavaScript Queries）+ `tasks-table.css` + `![[MEMO]]`。最上部の ` ```dataviewjs ` に**期日・優先度インライン編集の実装本体を直書き**（Tasks v8.3.0 の内部実装に依存・§2.3）。2026-08-23 以前は `meta/script/tasks-inline-edit.js` を `dv.view()` で読んでいたが、Obsidian Sync が `.js` を同期しないため廃止 |
 | `meta/MEMO.md` | なし（`HOME.md` に埋め込まれる走り書き用の空ノート） |
 | `meta/base/db.base` | Bases。`db/` 配下・`status` / `by` / `ai` / `model` / `halu` / `created` |
 | `meta/base/db/documents.base` | Bases。`db == "doc"` |

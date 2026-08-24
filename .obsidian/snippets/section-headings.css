@@ -53,6 +53,11 @@
   --sec-c4: hsl(var(--sec-hs), 58%);   /* H4 マーカー ▸ */
   --sec-c5: hsl(var(--sec-hs), 68%);   /* H5 タグの塗り */
   --sec-c6: hsl(var(--sec-hs), 77%);   /* H6 枠線とラベル */
+  /* H3：文字がある領域だけに敷く下地。表ヘッダ／H5 タグと同じ考え方で、
+     地色に --sec-c3 を薄く混ぜる（ベタ塗りにすると色相によっては
+     本文色とのコントラストが落ちるため）。 */
+  --sec-h3-bg: color-mix(in srgb, var(--sec-c3) 14%, var(--background-primary));
+
   /* インラインタイトル（ファイル名表示）の帯。ランプ中央を薄く敷く。
      テーマの地色に追従させる */
   --sec-title-bg: color-mix(in srgb, var(--sec-c3) 13%, var(--background-primary));
@@ -68,8 +73,16 @@
 
   --sec-indent: 0.7rem;   /* 全見出し共通の文字左端（全レベル同じ深さ）。
                              rem なので字サイズに依らず揃う */
-  --sec-bar:    5px;      /* H1 の左バーの太さ */
-  --sec-bar-3:  3px;      /* H3 の左バーの太さ（H1 より細くして階層差を出す） */
+  --sec-bar:    6px;      /* H1 の左バーの太さ */
+  --sec-rule-1: 3.0px;      /* H1 の下線の太さ */
+  --sec-rule-2: 2.0px;    /* H2 の下線の太さ（H1 より細くして階層差を出す） */
+  --sec-bar-3:  4px;      /* H3 の左バーの太さ（H1 より細くして階層差を出す） */
+  --sec-rule-3: 2.25px;   /* H3 の下線の太さ */
+  --sec-h3-padx: 0.7em;   /* H3 の下地を文字の右側へ広げる量 */
+  --sec-h3-pady: 0.14em;  /* H3 の下地の上下の厚み */
+  --sec-rule-4: 1.5px;    /* H4 の下線の太さ（H2 よりさらに細くする） */
+  --sec-h4-padx: 0.5em;   /* H4 の下線を文字の右側へ伸ばす量 */
+  --sec-h4-pady: 0.16em;  /* H4 の文字と下線の間隔 */
 
   /* H4：マーカー三角の寸法。文字 ▸ ではなく border で描くため、
      フォントのサイドベアリング（字面の左余白）に左右されず、
@@ -102,12 +115,12 @@
   --sec-point-bg: color-mix(in srgb, var(--sec-c6) 30%, var(--background-primary));
 
   /* サイズ比を既定の約 1.10 倍刻みから約 1.15 倍刻みへ広げる */
-  --h1-size: 1.90em;  --h1-weight: 800;
-  --h2-size: 1.60em;  --h2-weight: 700;
-  --h3-size: 1.36em;  --h3-weight: 700;
-  --h4-size: 1.18em;  --h4-weight: 600;
-  --h5-size: 1.04em;  --h5-weight: 600;
-  --h6-size: 0.94em;  --h6-weight: 600;
+  --h1-size: 1.50em;  --h1-weight: 700;
+  --h2-size: 1.40em;  --h2-weight: 600;
+  --h3-size: 1.10em;  --h3-weight: 550;
+  --h4-size: 1.10em;  --h4-weight: 400;
+  --h5-size: 1.00em;  --h5-weight: 100;
+  --h6-size: 1.00em;  --h6-weight: 600;
 }
 .theme-dark .markdown-preview-view,
 .theme-dark .markdown-source-view.mod-cm6,
@@ -121,6 +134,7 @@
   --sec-c4: hsl(var(--sec-hs), 62%);
   --sec-c5: hsl(var(--sec-hs), 52%);
   --sec-c6: hsl(var(--sec-hs), 45%);
+  --sec-h3-bg:    color-mix(in srgb, var(--sec-c3) 17%, var(--background-primary));
   --sec-title-bg: color-mix(in srgb, var(--sec-c3) 16%, var(--background-primary));
   /* ダークは地が暗いぶん少し濃く。文字とのコントラストは最悪 6.5:1 */
   --sec-table-head-bg: color-mix(in srgb, var(--sec-c3) 20%, var(--background-primary));
@@ -149,7 +163,7 @@
   box-sizing: border-box;
   padding: 0.08em 0 0.12em calc(var(--sec-indent) - var(--sec-bar));
   border-left: var(--sec-bar) solid var(--sec-c1);
-  border-bottom: 2px solid var(--sec-c1);
+  border-bottom: var(--sec-rule-1) solid var(--sec-c1);
 }
 
 /* H2：細い下線のみ（バーなし） */
@@ -157,26 +171,41 @@
 .HyperMD-header-2 {
   box-sizing: border-box;
   padding: 0.08em 0 0.14em var(--sec-indent);
-  border-bottom: 1px solid var(--sec-c2);
+  border-bottom: var(--sec-rule-2) solid var(--sec-c2);
 }
 
-/* H3：左バーのみ（H1 より細いバー・下線なし） */
+/* H3：左バー＋文字がある領域だけの下地＋下線。
+   width: fit-content で行の幅を文字幅まで詰めるので、塗りは全幅に伸びない
+   （H5 のタグと同じ手法）。display は block のままにして、
+   Obsidian 既定の上下マージン（--p-spacing / --heading-spacing）を保つ。 */
 .markdown-rendered h3,
 .HyperMD-header-3 {
   box-sizing: border-box;
-  padding: 0.02em 0 0.02em calc(var(--sec-indent) - var(--sec-bar-3));
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--sec-h3-pady) var(--sec-h3-padx) var(--sec-h3-pady)
+           calc(var(--sec-indent) - var(--sec-bar-3));
   border-left: var(--sec-bar-3) solid var(--sec-c3);
+  border-bottom: var(--sec-rule-3) solid var(--sec-c3);
+  background: var(--sec-h3-bg);
 }
 
-/* H4：バーをやめてマーカー三角に切り替える。
+/* H4：マーカー三角＋文字幅ぶんの下線。
    H4 はマーカー、H5 はタグ形、H6 は枠で、下位 3 つを形の違いで見分ける。
    マーカーは絶対配置で x=0 に置くので、文字の左端は H1〜H3 と同じ
-   --sec-indent のまま。三角はその左側の余白に収まる。 */
+   --sec-indent のまま。三角はその左側の余白に収まる。
+   下線は H2（全幅）と紛れないよう、width: fit-content で文字幅ぶんに詰め、
+   太さも H2 より細くする（H3 の下地と同じ手法）。 */
 .markdown-rendered h4,
 .HyperMD-header-4 {
   position: relative;
   box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
+  padding-right: var(--sec-h4-padx);
+  padding-bottom: var(--sec-h4-pady);
   padding-left: var(--sec-indent);
+  border-bottom: var(--sec-rule-4) solid var(--sec-c4);
 }
 
 /* H4 のマーカー（読み取り／Live Preview 共通）。
@@ -187,9 +216,11 @@
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-4::before {
   content: "";
   position: absolute;
+  /* top:50% は「パディングボックスの中央」＝下線ぶんの padding を含む中央。
+     文字の中央に載せるため、padding-bottom の半分だけ引き上げる。 */
   top: 50%;
   left: 0;
-  transform: translateY(-50%);
+  transform: translateY(calc(-50% - var(--sec-h4-pady) / 2));
   border-style: solid;
   /* 上 / 右 / 下 / 左：左辺だけ塗って右向きの三角にする */
   border-width: calc(var(--sec-mark-h) / 2) 0 calc(var(--sec-mark-h) / 2) var(--sec-mark-w);
@@ -300,13 +331,21 @@
 }
 
 /* ---- Live Preview（CM6）の余白確定 ----
-   Obsidian は `.cm-s-obsidian .cm-line.HyperMD-header` に
-   `padding-top: var(--p-spacing)` を詳細度 (0,3,0) で当ててくる。
-   これは上のショートハンド `.HyperMD-header-N` (0,1,0) より強いため、
-   放置すると H1 の下線が上下非対称になり、H1/H3 の左バーも上に伸びる。
-   ここで (0,4,0) の詳細度に揃えて padding を確定させ、
-   既定と同じ量の余白を margin-top: var(--p-spacing) で取り直す
-   （padding-top を既定のまま使うと左バーや枠が上へ伸びるため）。
+   Obsidian 既定のセクション間の余白は
+     `.cm-s-obsidian .cm-line.HyperMD-header { padding-top: var(--p-spacing) }` (0,3,0)。
+   これを padding のまま使うと、行ボックスの上端が 1rem 高くなり、
+   H1/H3 の左バー・H3 の下地・H1/H2 の下線・H4 の三角の基準がすべて上へ伸びる。
+   かといって margin では取り直せない。app.css の
+     `.markdown-source-view.mod-cm6 .cm-content > * { margin: 0 !important }`
+   が行（.cm-line）のマージンを一切通さないため（H6 のルール参照）。
+
+   そこで **透明な border-top** で既定と同じ 1rem を確保する。
+     ・border は margin の !important に潰されない
+     ・背景・inset box-shadow・絶対配置の基準はいずれも「パディングボックス」＝
+       透明ボーダーの内側なので、装飾は文字の帯だけに収まる
+   これに伴い、LP 側の左バーと下線は border から inset box-shadow に置き換える
+   （border-left はボーダー領域まで伸びて上端に斜めの継ぎ目が出るため）。
+   box-shadow は場所を取らないので、padding-left は --sec-indent をそのまま渡す。
    左パディングは CM6 が後から注入してくるので !important を維持。 */
 .markdown-source-view.mod-cm6 .cm-line:is(
   .HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
@@ -316,26 +355,58 @@
   padding-top: 0;
   padding-bottom: 0;
 }
+/* セクション間の余白（既定と同量）。H5 はタグの設計上、余白 0 のまま。 */
+.markdown-source-view.mod-cm6 .cm-line:is(
+  .HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
+  .HyperMD-header-4, .HyperMD-header-6) {
+  border-top: var(--p-spacing) solid transparent;
+  background-clip: padding-box;   /* 透明ボーダーの下に地色を敷かない（H3 の下地用） */
+}
+/* 既定の例外を踏襲：「見出し → 空行 → 見出し」の 2 つ目には余白を足さない
+   （app.css の `.HyperMD-header + .cm-line:has(>br:only-child) + .HyperMD-header`）。 */
+.markdown-source-view.mod-cm6 .cm-line.HyperMD-header
+  + .cm-line:not(.HyperMD-header):has(> br:only-child)
+  + .cm-line:is(.HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
+                .HyperMD-header-4, .HyperMD-header-6) {
+  border-top-width: 0;
+}
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-1 {
-  margin-top: var(--p-spacing);
+  border-left: 0;
+  border-bottom: 0;
+  /* 左バーと下線を padding ボックスの内側に描く（透明ボーダーには乗らない） */
+  box-shadow:
+    inset var(--sec-bar) 0 0 0 var(--sec-c1),
+    inset 0 calc(-1 * var(--sec-rule-1)) 0 0 var(--sec-c1);
   padding-top: 0.08em;
   padding-bottom: 0.12em;
-  padding-left: calc(var(--sec-indent) - var(--sec-bar)) !important;
+  padding-left: var(--sec-indent) !important;
 }
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-2 {
-  margin-top: var(--p-spacing);
+  border-bottom: 0;
+  box-shadow: inset 0 calc(-1 * var(--sec-rule-2)) 0 0 var(--sec-c2);
   padding-top: 0.08em;
   padding-bottom: 0.14em;
   padding-left: var(--sec-indent) !important;
 }
+/* Live Preview の H3。行要素なので inline-block/flex にはせず（CM6 の行測定と
+   カーソル位置がずれる）、display:block のまま width:fit-content で文字幅に詰める。 */
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-3 {
-  margin-top: var(--p-spacing);
-  padding-top: 0.02em;
-  padding-bottom: 0.02em;
-  padding-left: calc(var(--sec-indent) - var(--sec-bar-3)) !important;
+  width: fit-content;
+  max-width: 100%;
+  border-left: 0;
+  box-shadow: inset var(--sec-bar-3) 0 0 0 var(--sec-c3);
+  padding-top: var(--sec-h3-pady);
+  padding-bottom: var(--sec-h3-pady);
+  padding-right: var(--sec-h3-padx) !important;
+  padding-left: var(--sec-indent) !important;
 }
+/* H4 の三角（::before）は top: 50% ＝ パディングボックスの中央なので、
+   透明ボーダーを足しても文字の帯の中央に載ったまま。 */
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-4 {
-  margin-top: var(--p-spacing);
+  width: fit-content;
+  max-width: 100%;
+  padding-bottom: var(--sec-h4-pady);
+  padding-right: var(--sec-h4-padx) !important;
   padding-left: var(--sec-indent) !important;
 }
 /* Live Preview のタグ（H5）。行要素なので inline-block/flex にはせず（CM6 の行測定と
@@ -346,10 +417,9 @@
   max-width: 100%;
   height: var(--sec-tag-h);
   line-height: var(--sec-tag-h);
-  /* H5 だけは上下マージンを 0 にする（他レベルは --p-spacing で取り直す）。
-     padding-top / bottom は上の (0,4,0) のルールで既に 0。 */
-  margin-top: 0;
-  margin-bottom: 0;
+  /* H5 だけはセクション間の余白を付けない（タグの設計上、上下 0）。
+     上の透明 border-top のルールから H5 は除外済み。
+     padding-top / bottom は (0,4,0) のルールで既に 0。 */
   /* とがりの先端を x=0 に置く（H1/H3 の左バー・H4 の三角と同じ左端）。
      ::before を 1px 本体に食い込ませてある分だけ引き戻す */
   margin-left: calc(var(--sec-tag-point) - 1px);

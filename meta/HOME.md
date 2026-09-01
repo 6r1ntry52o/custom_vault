@@ -41,20 +41,36 @@
  * ---- 注意 ----
  * Tasks の内部実装（plugin.queryRenderer / htmlQueryRendererParameters /
  * window.flatpickr）に依存している。検証済みは Tasks v8.3.0。
- * インストールは 1 セッション 1 回。HOME を開く前に別ノートの tasks ブロックを
- * 描画していた場合、そのブロックだけは再描画までフォールバック（CSS のみ・
- * 編集モーダル経由）のままになる。
+ * このブロックを書き換えたら下の VERSION を必ず上げること。上げないと同じ
+ * セッションでは旧版が居座り、CSS だけ新しくなって「見た目は変わったのに
+ * 動かない」という原因の見えない壊れ方をする。
+ * HOME を開く前に別ノートの tasks ブロックを描画していた場合、そのブロック
+ * だけは再描画までフォールバック（CSS のみ・編集モーダル経由）のままになる。
  */
 
 (() => {
   const KEY = "__tasksInlineEdit__";
-  if (window[KEY]) return;
+  /* ★このブロックを書き換えたら必ずこの値を上げること。
+     旧実装は `if (window[KEY]) return;` で「1 セッション 1 回」しか入らず、
+     md を直しても Obsidian を再起動するまで旧版が居座った。CSS だけは
+     ホットリロードされるので「見た目は新しいのに動かない」という、原因の
+     見えない壊れ方をする（2026-09-01 に実際に踏んだ）。
+     版が違えば下で前のパッチを外して入れ直すので、ノートを開き直すだけで
+     更新が効く。 */
+  const VERSION = "2026-09-01.3";
 
   const plugin = app.plugins.plugins["obsidian-tasks-plugin"];
   const qr = plugin && plugin.queryRenderer;
   if (!qr || typeof qr.addQueryRenderChild !== "function") {
     console.warn("[tasks-inline-edit] Tasks プラグインが見つからないか構造が変わっています");
     return;
+  }
+
+  const installed = window[KEY];
+  if (installed && installed.version === VERSION) return;   // 同じ版＝何もしない
+  if (installed && typeof installed.uninstall === "function") {
+    // 前の版のパッチを外してから入れ直す（多重ラップを防ぐ）
+    try { installed.uninstall(); } catch (e) { console.error("[tasks-inline-edit] uninstall", e); }
   }
 
   let Notice = null, Menu = null;
@@ -175,8 +191,14 @@
   async function openTaskFile(task, newLeaf) {
     const file = app.vault.getFileByPath(task.path);
     if (!file) { notify(`tasks-inline-edit: ファイルが見つかりません (${task.path})`); return; }
-    const leaf = app.workspace.getLeaf(newLeaf ? "tab" : false);
-    await leaf.openFile(file, { eState: { line: task.lineNumber } });
+    try {
+      const leaf = app.workspace.getLeaf(newLeaf ? "tab" : false);
+      await leaf.openFile(file, { active: true, eState: { line: task.lineNumber } });
+    } catch (e) {
+      // 握り潰すと「押しても何も起きない」になり原因が追えない
+      console.error("[tasks-inline-edit] openTaskFile", e);
+      notify("tasks-inline-edit: ノートを開けませんでした（コンソールを確認）");
+    }
   }
 
   /* セルに click を張る。Task オブジェクトは自前で同定せず、フラグを立てて
@@ -266,7 +288,7 @@
 
   function hookChild(child) {
     const params = child && child.queryResultsRenderer && child.queryResultsRenderer.htmlQueryRendererParameters;
-    if (params && !params.__tieWrapped) {
+    if (params && params.__tieWrapped !== VERSION) {
       const orig = params.editTaskPencilClickHandler;
       params.editTaskPencilClickHandler = function (event, task, allTasks) {
         const req = pending;
@@ -281,7 +303,7 @@
         }
         return orig.call(this, event, task, allTasks); // 素の 📝 → 編集モーダル
       };
-      params.__tieWrapped = true;
+      params.__tieWrapped = VERSION;
     }
 
     const root = child && child.containerEl;
@@ -311,8 +333,11 @@
     finally { restore(); }
   };
 
-  window[KEY] = true;
-  console.log("[tasks-inline-edit] installed");
+  window[KEY] = {
+    version: VERSION,
+    uninstall: () => { qr.addQueryRenderChild = origAdd; },
+  };
+  console.log("[tasks-inline-edit] installed", VERSION);
 })();
 
 /* ここまで到達したらブロック自体を隠す。途中で throw した場合は隠さないので、

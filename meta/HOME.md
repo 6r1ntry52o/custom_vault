@@ -10,7 +10,9 @@
  * tasks コードブロックの検索結果に、その場での編集を足す。
  *
  *   期日セル（＋）をクリック  → Tasks 内蔵の flatpickr カレンダー
- *   優先度セル（絵文字 / ·）  → 優先度メニュー（Obsidian の Menu）
+ *   優先度セル（絵文字 / -）  → 優先度メニュー（Obsidian の Menu）
+ *   本文をクリック            → そのタスクが書かれている md をその行で開く
+ *                              （リンク・タグの上と、文字を選択した直後は素通り）
  *   📝 をクリック             → 従来どおり編集モーダル
  *
  * 見た目の列組みは .obsidian/snippets/tasks-table.css が担当。対で動く。
@@ -166,6 +168,17 @@
     menu.showAtPosition({ x: r.left, y: r.bottom });
   }
 
+  /* --- 本文クリックで、そのタスクが書かれている md を開く ---
+     ファイル列のバックリンクと同じ行き先だが、そちらは末尾の細い列で狙いにくい。
+     Task を持っているので lineNumber まで渡せる＝ノートを開いた直後にその行へ飛ぶ
+     （バックリンクは見出し単位）。newLeaf は Ctrl/Cmd+クリックで新しいタブに開く。 */
+  async function openTaskFile(task, newLeaf) {
+    const file = app.vault.getFileByPath(task.path);
+    if (!file) { notify(`tasks-inline-edit: ファイルが見つかりません (${task.path})`); return; }
+    const leaf = app.workspace.getLeaf(newLeaf ? "tab" : false);
+    await leaf.openFile(file, { eState: { line: task.lineNumber } });
+  }
+
   /* セルに click を張る。Task オブジェクトは自前で同定せず、フラグを立てて
      その行の 📝 を click() し、ラップした editTaskPencilClickHandler の
      引数として受け取る（下の hookChild を参照）。 */
@@ -180,6 +193,30 @@
       ev.preventDefault();
       ev.stopPropagation();
       pending = { kind, anchor: el };
+      try { edit.click(); } finally { pending = null; }
+    });
+  }
+
+  /* 本文セルに click を張る。wire() と違い「素通りさせる条件」がある。
+       ・<a> の上（🔗 / [[ ]] / #タグ）→ 本来の遷移を優先する。ここが
+         「リンクが無い領域だけ効く」の実装。closest() なので <a> の子の
+         <strong> や <code> を押しても正しく素通りする。
+       ・文字を選択した直後 → ドラッグで選択して指を離すと click が出るため、
+         これを弾かないと引用しようとするたびにノートへ飛んでしまう。
+     role="button" は付けない（本文は読み物であって操作子ではない）。 */
+  function wireOpen(el, li) {
+    if (el.dataset.tieOpen === "1") return;
+    const edit = li.querySelector(":scope > .task-extras > .tasks-edit");
+    if (!edit) return; // hide edit button のクエリでは何もしない
+    el.dataset.tieOpen = "1";
+    el.setAttribute("title", "Click to open the note");
+    el.addEventListener("click", (ev) => {
+      if (ev.target.closest("a")) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      pending = { kind: "open", anchor: el, newLeaf: ev.ctrlKey || ev.metaKey };
       try { edit.click(); } finally { pending = null; }
     });
   }
@@ -220,6 +257,10 @@
         }
       }
       wire(pri, li, "priority", "Click to set priority");
+
+      // 本文: クリックでそのタスクが書かれている md を開く
+      const desc = text.querySelector(":scope > .task-description");
+      if (desc) wireOpen(desc, li);
     });
   }
 
@@ -235,6 +276,7 @@
           event.stopPropagation();
           if (req.kind === "due") openDuePicker(req.anchor, task);
           else if (req.kind === "priority") openPriorityMenu(req.anchor, task);
+          else if (req.kind === "open") openTaskFile(task, req.newLeaf);
           return;
         }
         return orig.call(this, event, task, allTasks); // 素の 📝 → 編集モーダル

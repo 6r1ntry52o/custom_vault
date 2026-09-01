@@ -206,6 +206,12 @@
   grid-row: 1;
   padding-left: 0.2em;   /* 縦罫線と本文の間の余白（⏩ 側と同じ量） */
 }
+/* 本文クリックで元の md を開けるのは JS が動いている ul だけ（優先度セルと同じ判定）。
+   セル全体が当たり判定なので、文字の右の余白を押しても開く。
+   リンク・タグの上では JS 側が素通りさせるので、そこは既定のリンクの見た目のまま。 */
+.block-language-tasks ul.plugin-tasks-query-result[data-due-picker] .tasks-list-text > .task-description {
+  cursor: pointer;
+}
 /* 繰り返し・開始日など、明示配置していない要素は本文の列に流し、
    2 行目以降へ送る（延期ボタン用の細い列に落ちて潰れるのを防ぐ） */
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-priority):not(.task-due):not(.task-description) {

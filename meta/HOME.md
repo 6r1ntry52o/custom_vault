@@ -59,12 +59,15 @@
   try { const ob = require("obsidian"); Notice = ob.Notice; Menu = ob.Menu; } catch (e) { /* noop */ }
   const notify = (m) => { if (Notice) new Notice(m, 6000); else console.warn("[tasks-inline-edit]", m); };
 
-  // Task.priority は文字列。"3" = Normal（絵文字なし）。
+  /* Task.priority は文字列。"3" = Normal（絵文字なし）。
+     ラベルの記号は tasks-table.css の表示と揃えてある。md に保存される字は
+     Tasks 側の記法（🔺⏫🔼）のままで、ここと CSS は「見せ方」だけを差し替えて
+     いる。片方だけ直すと、一覧の表示とメニューの表示がズレる。 */
   const PRIORITIES = [
-    { value: "0", label: "🔺 Highest" },
-    { value: "1", label: "⏫ High" },
-    { value: "2", label: "🔼 Medium" },
-    { value: "3", label: "Normal" },
+    { value: "0", label: "🔴 Highest" },
+    { value: "1", label: "🟠 High" },
+    { value: "2", label: "🟡 Medium" },
+    { value: "3", label: "- Normal" },
     { value: "4", label: "🔽 Low" },
     { value: "5", label: "⏬ Lowest" },
   ];
@@ -298,6 +301,11 @@ dv.paragraph(`${exists ? "📄" : "➕"} [[${path}|${day.format("YYYY-MM-DD (ddd
 # 要: 設定 → Tasks → Searches → "Enable custom searches" を ON（端末ごと）
 not done
 filter by function (task.file.path.includes('db/') && task.file.property('by') === 'me') || task.file.path.includes('journal/')
+# 並びは「① 期限 → ② 優先度」。以下は Tasks の仕様なので把握しておくとよい:
+#   ・優先度は第2キー＝同じ期限どうしの中でしか効かない。期限がバラバラな間は
+#     並びが実質「期限順そのもの」になり、優先度が高くても上には来ない。
+#   ・期日なしの行は必ず最後にまとまる（無効な日付だけは先頭）。
+#   ・両方を1つのスコアで混ぜたいなら sort by urgency（期限と優先度の合成）に置き換える。
 sort by due
 sort by priority
 # group by filename

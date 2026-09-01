@@ -180,7 +180,7 @@
   transition: opacity 0.1s ease-out;
 }
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder::after {
-  content: "·";
+  content: "-";   /* Normal の印（2026-09-01 この vault の既定・旧 "·"） */
 }
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"]:hover > .tasks-list-text > .tasks-priority-placeholder {
   opacity: 0.7;
@@ -579,6 +579,11 @@
      他の行の日付（2026-08-23）と同程度の下限を持たせる。列自体が auto なので
      日付ありの行が 1 つでもあれば、そちらの実幅まで自動で広がる。 */
   min-width: 10ch;
+  /* ＋は日付テキストと同じ列の中央に置く（2026-09-01 この vault の既定・旧= 左寄せ）。
+     グリッドアイテムは既定で justify-self: stretch ＝ 列幅いっぱいに広がるので、
+     text-align だけで「日付が入る幅の真ん中」に来る。box には触れないので
+     列幅・行の高さは動かない。 */
+  text-align: center;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -601,4 +606,114 @@
   .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder {
     display: none;
   }
+}
+
+/* ============================================================
+   期限の近さで行を色分けする（2026-09-01）
+
+   Tasks プラグインは li に data-task-due を必ず付ける（設定不要）。
+   値は past-far / past-7d … past-1d / today / future-1d … future-7d /
+   future-far。期日が無い行には属性自体が付かない。
+     → 超過      : [data-task-due^="past-"]
+     → 今日      : [data-task-due="today"]
+     → 3日以内   : future-1d / future-2d / future-3d（future-0d は無い）
+
+   色分けは「行の薄い塗り」＋「日付セルの文字色」の 2 つだけ。罫線・列組み
+   には触らないので、この節ごと消せば元のテーブルに戻る。
+   済みの行（Obsidian が .is-checked を付ける）は対象外＝完了タスクを
+   赤くしない。
+
+   ⚠ 生の #hex を書かないこと。テーマ変数（--color-red / --color-orange）を
+     使えばライト/ダークの切替に自動で追随する。
+   ⚠ 塗りと文字色は変数経由で当てている。該当しない行では変数が未定義＝
+     フォールバック値（transparent / 既定のホバー色 / opacity .85）に落ちる
+     ので、期限が遠い行や期日なしの行の見た目は変わらない。
+   ============================================================ */
+
+/* 超過 ＋ 今日 = 赤 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due^="past-"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="today"] {
+  --tasks-row-bg: color-mix(in srgb, var(--color-red) 9%, transparent);
+  --tasks-row-bg-hover: color-mix(in srgb, var(--color-red) 15%, var(--background-modifier-hover));
+  --tasks-due-color: var(--color-red);
+  --tasks-due-opacity: 1;
+}
+
+/* 3日以内（明日〜3日後） = 橙 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-1d"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-2d"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-3d"] {
+  --tasks-row-bg: color-mix(in srgb, var(--color-orange) 9%, transparent);
+  --tasks-row-bg-hover: color-mix(in srgb, var(--color-orange) 15%, var(--background-modifier-hover));
+  --tasks-due-color: var(--color-orange);
+  --tasks-due-opacity: 1;
+}
+
+/* 行の塗り。汎用の :hover ルール（上）より属性ぶん詳細度が高いので、
+   ホバー時は必ずこちらが使われる＝色分けした行もホバーが効く。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due] {
+  background: var(--tasks-row-bg, transparent);
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:hover {
+  background: var(--tasks-row-bg-hover, var(--background-modifier-hover));
+}
+
+/* 日付セルの文字色（既定の opacity .85 のままだと色が濁るので 1 に戻す） */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due] > .tasks-list-text > .task-due {
+  color: var(--tasks-due-color, inherit);
+  opacity: var(--tasks-due-opacity, 0.85);
+}
+
+/* 超過だけは一段強く＝今日と見分ける */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due^="past-"] > .tasks-list-text > .task-due {
+  font-weight: var(--font-semibold, 600);
+}
+
+/* ============================================================
+   優先度の見た目（2026-09-01 この vault の既定） ＋ 超過タスクの赤文字
+
+     🔺 Highest → 🔴      🔽 Low    → そのまま
+     ⏫ High    → 🟠      ⏬ Lowest → そのまま
+     🔼 Medium  → 🟡      Normal    → "-"（上の placeholder 節で指定）
+
+   ---- md 側の記法は変えられない ----
+   Tasks は md 本文の 🔺⏫🔼🔽⏬ という字そのものを見て優先度を決めるパーサなので、
+   db/タスク.md の絵文字を 🔴 に置換すると優先度として認識されなくなる。
+   よって「保存されている字」は 🔺⏫🔼 のまま、「表示される字」だけを CSS で差し替える。
+   編集モーダルや優先度メニューには元の名前（Highest/High/Medium）が出る。
+
+   ---- 実装上の注意（過去に 2 回壊した箇所）----
+   ・絵文字はカラーフォントの字形なので color では消せない。親を font-size: 0 に
+     して字形ごと潰し、::after で新しい字を出す。
+   ・font-size: 0 の要素の子では **em が 0 に解決される**ので、::after の
+     font-size に em を使ってはいけない。px 基準の --font-text-size から calc する。
+   ・width / padding / margin は一切指定しない。差し替え後も絵文字 1 文字ぶんの幅
+     なので 2 列目の幅は変わらず、本文の折り返し位置も動かない。
+   ・色は絵文字自身が持つので、以前入れていた背景のピルは撤去した
+     （🔴 を赤い下地に載せると濁るため）。
+   ============================================================ */
+
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="highest"] > .tasks-list-text > .task-priority,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="high"] > .tasks-list-text > .task-priority,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="medium"] > .tasks-list-text > .task-priority {
+  font-size: 0;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="highest"] > .tasks-list-text > .task-priority::after,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="high"] > .tasks-list-text > .task-priority::after,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="medium"] > .tasks-list-text > .task-priority::after {
+  /* 元の .task-priority と同じ 0.9em 相当。em は使えないので px から起こす */
+  font-size: calc(var(--font-text-size, 16px) * 0.9);
+}
+
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="highest"] > .tasks-list-text > .task-priority::after { content: "🔴"; }
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="high"]    > .tasks-list-text > .task-priority::after { content: "🟠"; }
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="medium"]  > .tasks-list-text > .task-priority::after { content: "🟡"; }
+
+/* ---- 期限が過ぎた行は本文も赤にする ----
+   1 つ上の節で行の淡い塗りと 📅 の文字色は既に赤にしてある。ここは本文（.task-description）。
+   「今日」は超過ではないので対象外＝今日ぶんも赤くしたいなら、下のセレクタに
+   [data-task-due="today"] の行を足す。
+   本文中のリンク（🔗 など）は既定のリンク色のままにしておく＝押せることが分かるように。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due^="past-"] > .tasks-list-text > .task-description {
+  color: var(--color-red);
 }

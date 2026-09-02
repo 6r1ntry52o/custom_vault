@@ -264,7 +264,7 @@
   text-overflow: ellipsis;
   opacity: 0.8;
   /* 列トラックは auto ＝ 内容ぶんだけ。長いファイル名で本文の列が潰れないよう、
-     上限だけここで止める（超えた分は省略記号）。
+     上限だけここで止める（超えた分は overflow: hidden で切る）。
      ⚠ この箱は下で font-size: 0 にするので em は使えない（すべて 0 に潰れる）。
        px 基準の --tasks-small から起こすこと。 */
   max-width: calc(var(--tasks-small) * 12);
@@ -274,14 +274,17 @@
      中の <a>（ファイル名リンク）だけ実サイズに戻す。 */
   font-size: 0;
 }
-/* 省略記号は文字なので、font-size: 0 の親では描かれない。実サイズに戻した
-   <a> の側で切る。inline のままだと text-overflow が効かないので block にする。 */
+/* ⚠ ここで <a> を display: block / inline-block にしてはいけない（2026-09-01 に踏んだ）。
+   この span は " (" と <a> と ")" の 3 つを子に持つ。<a> をブロック化すると前後の
+   括弧が匿名ブロックに分かれて縦に 3 段積まれ、行が 3 行分の高さになる。
+   （括弧は font-size: 0 だが、行ボックスの高さは line-height＝px 固定値で決まる
+     ので、見えないまま高さだけ 1 行ぶんずつ occupying する）
+   inline-block も不可＝overflow:hidden を持つ inline-block はベースラインが箱の
+   下端になり、親の行ボックスが下へ伸びる（⏩ / 📝 で既知の挙動・上の注記参照）。
+   よって切り詰めは親の span 側だけで行う。省略記号は親が font-size: 0 のため
+   描かれないが、はみ出しは overflow: hidden で確実に切れる。 */
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink > a {
   font-size: var(--tasks-small);
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 /* プラグイン既定の width/height:1em は絵文字の実幅より小さく、

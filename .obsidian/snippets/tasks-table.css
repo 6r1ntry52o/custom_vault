@@ -2,7 +2,7 @@
    Tasks プラグインのクエリ結果をテーブル風に整列させる
    （チェックボックスはクリックで元ファイルを書き換え可能なまま）
 
-   列: [☑] [優先度] [📅 期限日] [⏩ 延期] [タスク内容] [ファイル] [📝 編集]
+   列: [☑] [優先度] [📅 期限日] [⏩ 延期] [ファイル] [タスク内容] [📝 編集]
    対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
 
    ---- 構造の前提（Tasks プラグインの DOM）----
@@ -30,8 +30,8 @@
     auto               /* 2 優先度 🔺⏫🔼🔽⏬（付いた行が無ければ自然に幅 0） */
     auto               /* 3 期限日 📅（日付の実幅ぶんだけ取る） */
     auto               /* 4 延期 ⏩ */
-    minmax(0, 1fr)     /* 5 タスク内容（余りを全部もらう） */
-    minmax(0, 12em)    /* 6 ファイル（短い名前なら詰まる。上限だけ決める） */
+    auto               /* 5 ファイル名（内容ぶんだけ。上限は要素側の max-width） */
+    minmax(0, 1fr)     /* 6 タスク内容（余りを全部もらう） */
     1.4em;             /* 7 編集 📝 */
   column-gap: 0.2em;
   row-gap: 0;
@@ -80,14 +80,14 @@
 }
 
 /* ⏩ とタスク内容の間の縦罫線。
-   li 自身の ::before をグリッドアイテムとして 5 列目（タスク内容）の
+   li 自身の ::before をグリッドアイテムとして 6 列目（タスク内容）の
    左端に置き、幅 0 ＋ border-left で 1px の線にする。列幅は auto や 1fr で
    決まるため位置を数値で指定できないが、この方法なら常に列境界に乗る。
    align-self: stretch で行の高さいっぱいに伸ばし、上下は li のパディング
    ぶん（0.12em）マイナスマージンで食い出させて、上下の横罫線まで届かせる。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before {
   content: "";
-  grid-column: 5;
+  grid-column: 6;
   grid-row: 1;
   justify-self: start;
   align-self: stretch;
@@ -119,11 +119,12 @@
   justify-self: center;
 }
 
-/* 2〜5列目: [優先度][📅 期限日][（延期の列は空ける）][タスク内容] */
+/* 2〜6列目: [優先度][📅 期限日][（延期の列は空ける）][（ファイルの列は空ける）][タスク内容]
+   ファイル名は .task-extras 側の要素なので、ここでは列を空けて通り過ぎるだけ。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text {
   display: grid;
   grid-template-columns: subgrid;
-  grid-column: 2 / 6;
+  grid-column: 2 / 7;
   grid-row: 1;
   align-items: start;
   align-content: start;
@@ -202,7 +203,7 @@
   font-size: 0;
 }
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-description {
-  grid-column: 4;
+  grid-column: 5;
   grid-row: 1;
   padding-left: 0.2em;   /* 縦罫線と本文の間の余白（⏩ 側と同じ量） */
 }
@@ -215,12 +216,12 @@
 /* 繰り返し・開始日など、明示配置していない要素は本文の列に流し、
    2 行目以降へ送る（延期ボタン用の細い列に落ちて潰れるのを防ぐ） */
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-priority):not(.task-due):not(.task-description) {
-  grid-column: 4;
+  grid-column: 5;
   grid-row: 2;
   font-size: var(--tasks-small);
 }
 
-/* 4・6・7列目: [⏩ 延期][ファイル][📝 編集]
+/* 4・5・7列目: [⏩ 延期][ファイル][📝 編集]
    列だけ指定して行を省くと破綻する。自動配置は DOM 順に前へ進むだけで
    戻れないため、.task-extras の DOM 順（urgency → backlink → edit →
    postpone）だと、最後の postpone が左の 1 列目に戻れず次の行へ落ちる。
@@ -248,11 +249,11 @@
      箱を右に少し縮めて隙間を作る。 */
   margin-right: 0.2em;
 }
-.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink { grid-column: 3; grid-row: 1; }
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink { grid-column: 2; grid-row: 1; }
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-edit     { grid-column: 4; grid-row: 1; }
 /* .tasks-urgency など未配置の要素はファイルの列へ（2 行目以降に流れる） */
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > *:not(.tasks-postpone):not(.tasks-backlink):not(.tasks-edit) {
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 2;
   font-size: var(--tasks-small);
 }
@@ -262,13 +263,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0.8;
+  /* 列トラックは auto ＝ 内容ぶんだけ。長いファイル名で本文の列が潰れないよう、
+     上限だけここで止める（超えた分は省略記号）。
+     ⚠ この箱は下で font-size: 0 にするので em は使えない（すべて 0 に潰れる）。
+       px 基準の --tasks-small から起こすこと。 */
+  max-width: calc(var(--tasks-small) * 12);
+  margin-right: calc(var(--tasks-small) * 0.5);
   /* Tasks は非 short mode で " (" と ")" をテキストノードとして直接追加する。
      テキストノードは CSS で選択できないため、親を font-size:0 にして潰し、
      中の <a>（ファイル名リンク）だけ実サイズに戻す。 */
   font-size: 0;
 }
+/* 省略記号は文字なので、font-size: 0 の親では描かれない。実サイズに戻した
+   <a> の側で切る。inline のままだと text-overflow が効かないので block にする。 */
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink > a {
   font-size: var(--tasks-small);
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* プラグイン既定の width/height:1em は絵文字の実幅より小さく、
@@ -492,9 +505,9 @@
    表示条件は due ではなく happensDate のいずれかが有効なこと）。
    出る場合に備えて列番号をずらしておく。 */
 .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-postpone { grid-column: 2; }
-.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-backlink { grid-column: 4; }
+.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-backlink { grid-column: 3; }
 .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > *:not(.tasks-postpone):not(.tasks-backlink):not(.tasks-edit) {
-  grid-column: 4;
+  grid-column: 3;
 }
 
 /* 📝 をサブグリッド全幅（＝グリッド 2〜6列目）に伸ばし、当たり判定を

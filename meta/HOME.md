@@ -14,6 +14,7 @@
  *   本文をクリック            → そのタスクが書かれている md をその行で開く
  *                              （リンク・タグの上と、文字を選択した直後は素通り）
  *   📝 をクリック             → 従来どおり編集モーダル
+ *   ファイル列                → "ファイル名 > 見出し" から見出しとフォルダを落とす
  *
  * 見た目の列組みは .obsidian/snippets/tasks-table.css が担当。対で動く。
  *
@@ -57,7 +58,7 @@
      見えない壊れ方をする（2026-09-01 に実際に踏んだ）。
      版が違えば下で前のパッチを外して入れ直すので、ノートを開き直すだけで
      更新が効く。 */
-  const VERSION = "2026-09-01.3";
+  const VERSION = "2026-09-01.4";
 
   const plugin = app.plugins.plugins["obsidian-tasks-plugin"];
   const qr = plugin && plugin.queryRenderer;
@@ -201,6 +202,24 @@
     }
   }
 
+  /* --- ファイル列を「ファイル名だけ」にする ---
+     Tasks の getLinkText() は "ファイル名 > 見出し" を返す（同名ファイルが他にも
+     ある時は、ファイル名の代わりにパスが入る）。一覧では「どのノートのタスクか」
+     さえ分かればよいので、見出しとフォルダを落として表示する。
+     元の文字列は title に残すので、ホバーすれば場所まで分かる。
+     ※ CSS では削れない。"(" と ")" と同じくテキストノードの一部であり、
+        セレクタで掴めるのは <a> 全体だけだから。 */
+  function shortenBacklink(a) {
+    if (a.dataset.tieShort === "1") return;
+    a.dataset.tieShort = "1";               // 先に立てる＝書き換えで再入しても素通り
+    const full = a.textContent;
+    const short = full.split(" > ")[0].split("/").pop();
+    if (short && short !== full) {
+      a.textContent = short;
+      a.setAttribute("title", full);
+    }
+  }
+
   /* セルに click を張る。Task オブジェクトは自前で同定せず、フラグを立てて
      その行の 📝 を click() し、ラップした editTaskPencilClickHandler の
      引数として受け取る（下の hookChild を参照）。 */
@@ -283,6 +302,10 @@
       // 本文: クリックでそのタスクが書かれている md を開く
       const desc = text.querySelector(":scope > .task-description");
       if (desc) wireOpen(desc, li);
+
+      // ファイル列: "ファイル名 > 見出し" から見出しとフォルダを落とす
+      const back = li.querySelector(":scope > .task-extras > .tasks-backlink > a");
+      if (back) shortenBacklink(back);
     });
   }
 

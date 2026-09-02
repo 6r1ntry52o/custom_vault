@@ -58,7 +58,7 @@
      見えない壊れ方をする（2026-09-01 に実際に踏んだ）。
      版が違えば下で前のパッチを外して入れ直すので、ノートを開き直すだけで
      更新が効く。 */
-  const VERSION = "2026-09-01.4";
+  const VERSION = "2026-09-01.5";
 
   const plugin = app.plugins.plugins["obsidian-tasks-plugin"];
   const qr = plugin && plugin.queryRenderer;
@@ -210,14 +210,23 @@
      ※ CSS では削れない。"(" と ")" と同じくテキストノードの一部であり、
         セレクタで掴めるのは <a> 全体だけだから。 */
   function shortenBacklink(a) {
-    if (a.dataset.tieShort === "1") return;
-    a.dataset.tieShort = "1";               // 先に立てる＝書き換えで再入しても素通り
-    const full = a.textContent;
-    const short = full.split(" > ")[0].split("/").pop();
-    if (short && short !== full) {
-      a.textContent = short;
-      a.setAttribute("title", full);
-    }
+    /* ⚠ Tasks は <a> を先に DOM へ挿し、そのあとで text を入れる（addBacklinks:
+       Ge("a", span) → 属性設定 → o.text = getLinkText(...)）。decorate はその
+       途中でも走りうるので、空のうちに「済み」の印を立てると二度と直らない。
+       印は実際に詰められた時だけ立て、空なら何もせず次の変化を待つ。 */
+    const full = a.dataset.tieFull || a.textContent;
+    if (!full) return;
+    /* getLinkText() が返す形は 2 通り＋見出し:
+         ファイル名が vault 内で一意 → "ファイル名"（拡張子なし）
+         同名ファイルが他にもある     → "/フォルダ/ファイル名.md"
+       いずれも見出しがあれば " > 見出し" が付く。
+       末尾の .md はパス形式の時だけ付くので、落としてから使う。 */
+    const short = full.split(" > ")[0].split("/").pop().replace(/\.md$/i, "");
+    if (!short) return;
+    if (a.dataset.tieFull && a.textContent === short) return;  // 既に詰め済み
+    a.dataset.tieFull = full;                 // 元の文字列（再描画時の再計算用）
+    a.setAttribute("title", full);            // ホバーすれば見出しまで分かる
+    a.textContent = short;
   }
 
   /* セルに click を張る。Task オブジェクトは自前で同定せず、フラグを立てて

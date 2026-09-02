@@ -682,7 +682,11 @@
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-7d"] {
   --tasks-row-bg: color-mix(in srgb, var(--color-yellow) 9%, transparent);
   --tasks-row-bg-hover: color-mix(in srgb, var(--color-yellow) 15%, var(--background-modifier-hover));
-  --tasks-due-color: var(--color-yellow);
+  /* 文字色だけは素の --color-yellow を使わない。黄は赤・橙より輝度が高く、
+     淡い黄の下地に載せると背景とのコントラストが落ちて読みにくい。
+     本文色（--text-normal）へ寄せて沈める。ライトテーマでは暗い側、
+     ダークテーマでは明るい側へ動くので、どちらでも下地から離れる。 */
+  --tasks-due-color: color-mix(in srgb, var(--color-yellow) 55%, var(--text-normal));
   --tasks-due-opacity: 1;
 }
 

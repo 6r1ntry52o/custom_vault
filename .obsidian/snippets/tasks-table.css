@@ -639,6 +639,7 @@
      → 超過      : [data-task-due^="past-"]
      → 今日      : [data-task-due="today"]
      → 3日以内   : future-1d / future-2d / future-3d（future-0d は無い）
+     → 1週間以内 : future-4d 〜 future-7d（8日以降は一括で future-far）
 
    色分けは「行の薄い塗り」＋「日付セルの文字色」の 2 つだけ。罫線・列組み
    には触らないので、この節ごと消せば元のテーブルに戻る。
@@ -668,6 +669,20 @@
   --tasks-row-bg: color-mix(in srgb, var(--color-orange) 9%, transparent);
   --tasks-row-bg-hover: color-mix(in srgb, var(--color-orange) 15%, var(--background-modifier-hover));
   --tasks-due-color: var(--color-orange);
+  --tasks-due-opacity: 1;
+}
+
+/* 1週間以内（4〜7日後） = 黄
+   Tasks が個別の値を持つのは future-7d まで（8日以降は一括で future-far）。
+   つまり「ちょうど1週間」がこの属性で表現できる限界の粒度で、
+   これより細かい区切り（10日以内など）は同じ方法では作れない。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-4d"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-5d"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-6d"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="future-7d"] {
+  --tasks-row-bg: color-mix(in srgb, var(--color-yellow) 9%, transparent);
+  --tasks-row-bg-hover: color-mix(in srgb, var(--color-yellow) 15%, var(--background-modifier-hover));
+  --tasks-due-color: var(--color-yellow);
   --tasks-due-opacity: 1;
 }
 

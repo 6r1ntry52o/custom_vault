@@ -3,6 +3,9 @@
    理由＝Obsidian Sync は既定で md しか同期せず（.js は「その他のファイルタイプ」＝初期OFF）、
    モバイルでは .js が届かず「見た目は正常なのにセルを押しても無反応」になっていたため。
    このブロックは tasks ブロックより先に実行される必要があるので、必ず HOME.md の最上部に置くこと。 %%
+
+##### [[DropZone]]
+
 ```dataviewjs
 /* tasks-inline-edit
  * meta/HOME.md 最上部の dataviewjs ブロック本体（2026-08-23 に .js 直読みから直書きへ移行）。
@@ -379,22 +382,14 @@ const _wrap = dv.container.closest(".el-pre, .el-div");
 if (_wrap) _wrap.style.display = "none";
 ```
 
+## Tasks
+
 ```dataviewjs
 const day = moment().locale("en"); // 曜日を英語表記（Mon/Tue...）にするため
 const path = `journal/daily/${day.format("YYYY-MM-DD")}.md`;
 const exists = app.vault.getAbstractFileByPath(path) !== null;
 dv.paragraph(`${exists ? "📄" : "➕"} [[${path}|${day.format("YYYY-MM-DD (ddd)")}]]`);
 ```
-
-![[MEMO]]
-
-##### [[DropZone]]
-
-## Issues
-
-![[tickets.base]]
-
-## Tasks
 
 ```tasks
 # 要: 設定 → Tasks → Searches → "Enable custom searches" を ON（端末ごと）
@@ -421,9 +416,14 @@ hide on completion
 ```
 - [[done_tasks]]
 
+## Issues
+
+![[tickets.base]]
+
+![[MEMO]]
+
 ## Documents
 
 ![[documents.base]]
 
 %%以下自由編集%%
-

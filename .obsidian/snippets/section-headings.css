@@ -62,14 +62,37 @@
      テーマの地色に追従させる */
   --sec-title-bg: color-mix(in srgb, var(--sec-c3) 13%, var(--background-primary));
 
-  /* 表：ヘッダ行の下地もアクセント追従。全色相で本文文字とのコントラストは
-     最悪でも 11.0:1 を確保できることを確認済み。 */
-  --sec-table-head-bg: color-mix(in srgb, var(--sec-c3) 18%, var(--background-primary));
-  --sec-table-pad: 0.35em 0.7em;
-  /* 罫線色。既定の --table-border-color はアクセント下地に負けて消えるので、
-     本文色ベースに上げる。Markdown 表と Bases の両方でこの 1 つを使う */
-  --sec-line: color-mix(in srgb, var(--text-normal) 22%, transparent);
-  --table-header-background: var(--sec-table-head-bg);
+  /* ---- 表（2026-09-04 改）----
+     表もアクセントに追従させる。ただし見出しと**同じ使い方**はしない。
+     旧版は見出しと同じ「--sec-c3 を薄く敷いた面」で、H3 の下地と色相も
+     使い方も同じ・濃度差が 14% 対 9% しかなく、表ヘッダが見出しの一種に
+     見えていた。そこで色ではなく**アクセントの現れ方**で階層と表を分ける:
+
+         セクション（見出し）… アクセントの「面」（下地の塗り・太いバー）
+         表                  … アクセントの「線」（ヘッダ下線）＋ 面はほぼ無色
+
+     面を弱くして線に寄せるので、表全体の主張は下がる（＝目立たなくなる）
+     一方で、アクセント色を変えれば表の色もちゃんと変わる。
+
+     彩度を落としたランプ。色相だけアクセントから借り、彩度を半分弱に
+     絞った「色味のあるグレー」。--sec-c* が“色”なのに対しこちらは“器”。
+     ※ --accent-s は "88%" のような百分率。calc(百分率 * 数値) は有効。 */
+  --sec-hs-mute: var(--accent-h), calc(var(--accent-s) * 0.45);
+  --sec-c3-mute: hsl(var(--sec-hs-mute), 47%);
+  /* ヘッダ下地。旧 9% → 8% かつ彩度は半分弱なので、色味は約 1/2 に減る */
+  --sec-table-head-bg: color-mix(in srgb, var(--sec-c3-mute) 8%, var(--background-primary));
+  /* ヘッダ下線＝表の中でアクセントが読み取れる唯一の場所。
+     面ではなく線なので、H3 の帯とは違うものとして目に入る。
+     ベタの --sec-c3 では強すぎるので 55% まで透かす */
+  --sec-table-head-line: color-mix(in srgb, var(--sec-c3) 55%, transparent);
+  --sec-table-head-rule: 2px;
+  /* 罫線色。既定の --table-border-color は淡すぎて消えるので本文色ベースにする。
+     ただし 22% は表を紙面で一番強い要素にしてしまうため 14% まで落とす
+     （アクセントはヘッダ下線が持つので、格子自体は黙っていてよい）。
+     Markdown 表と Bases の両方でこの 1 つを使う */
+  --sec-line: color-mix(in srgb, var(--text-normal) 14%, transparent);
+  /* ※ --table-header-background / --table-border-color など Obsidian の
+     表トークンへの割り当ては、下の「表」ブロックに集約してある */
 
   --sec-indent: 0.7rem;   /* 全見出し共通の文字左端（全レベル同じ深さ）。
                              rem なので字サイズに依らず揃う */
@@ -136,8 +159,12 @@
   --sec-c6: hsl(var(--sec-hs), 45%);
   --sec-h3-bg:    color-mix(in srgb, var(--sec-c3) 17%, var(--background-primary));
   --sec-title-bg: color-mix(in srgb, var(--sec-c3) 16%, var(--background-primary));
-  /* ダークは地が暗いぶん少し濃く。文字とのコントラストは最悪 6.5:1 */
-  --sec-table-head-bg: color-mix(in srgb, var(--sec-c3) 20%, var(--background-primary));
+  /* 表：ダークは地が暗いので、同じ見え方にするには混合率を上げる。
+     彩度を落としたランプも明度を反転させる（--sec-c3 と同じ 72%） */
+  --sec-c3-mute: hsl(var(--sec-hs-mute), 72%);
+  --sec-table-head-bg: color-mix(in srgb, var(--sec-c3-mute) 10%, var(--background-primary));
+  --sec-table-head-line: color-mix(in srgb, var(--sec-c3) 50%, transparent);
+  --sec-line: color-mix(in srgb, var(--text-normal) 16%, transparent);
   --sec-tag-bg:   color-mix(in srgb, var(--sec-c5) 34%, var(--background-primary));
   --sec-point-bg: color-mix(in srgb, var(--sec-c6) 34%, var(--background-primary));
 }
@@ -230,19 +257,18 @@
 /* H5：タグ（荷札）風。左にとがりと穴を付けて、文字幅ぶんだけ塗る。
    とがりの分だけ左へずらしてあるので、見た目の左端は他レベルと揃う。 */
 .markdown-rendered h5 {
-  /* 上下マージンは完全に 0。Obsidian 側の
-     `margin-block: var(--p-spacing)` と、段落・リスト・表の直後に効く
-     `margin-top: var(--heading-spacing)` は、変数を要素側で 0 に潰して
-     無効化する（消費側ルールの詳細度に勝つ必要がない）。 */
-  --p-spacing: 0;
-  --heading-spacing: 0;
-  margin-top: 0;
-  margin-bottom: 0;
   position: relative;
-  display: inline-block;
-  /* inline-block はベースライン揃えなので、下にディセンダ分の行間が残る。
-     top 揃えにして行ボックスをタグの高さぴったりにする */
-  vertical-align: top;
+  /* 上下の余白は他レベルと同じ（Obsidian 既定の
+     `margin-block: var(--p-spacing)` ＋ 段落・リスト・表の直後の
+     `margin-top: var(--heading-spacing)`）に任せる。
+     そのために display は block のままにして width: fit-content で
+     文字幅へ詰める（H3 と同じ手法）。inline-block にすると行ボックスの中に
+     入ってマージンが隣と相殺されず、H5 だけセクション間が広くなる。
+     block なら高さは height で決まるので、ベースライン揃えによる
+     ディセンダ分の行間も出ない。 */
+  display: block;
+  width: fit-content;
+  max-width: 100%;
   box-sizing: border-box;
   height: var(--sec-tag-h);
   line-height: var(--sec-tag-h);   /* height と揃えて文字を上下中央に置く */
@@ -355,10 +381,10 @@
   padding-top: 0;
   padding-bottom: 0;
 }
-/* セクション間の余白（既定と同量）。H5 はタグの設計上、余白 0 のまま。 */
+/* セクション間の余白（既定と同量・全レベル共通）。 */
 .markdown-source-view.mod-cm6 .cm-line:is(
   .HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
-  .HyperMD-header-4, .HyperMD-header-6) {
+  .HyperMD-header-4, .HyperMD-header-5, .HyperMD-header-6) {
   border-top: var(--p-spacing) solid transparent;
   background-clip: padding-box;   /* 透明ボーダーの下に地色を敷かない（H3 の下地用） */
 }
@@ -367,7 +393,7 @@
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header
   + .cm-line:not(.HyperMD-header):has(> br:only-child)
   + .cm-line:is(.HyperMD-header-1, .HyperMD-header-2, .HyperMD-header-3,
-                .HyperMD-header-4, .HyperMD-header-6) {
+                .HyperMD-header-4, .HyperMD-header-5, .HyperMD-header-6) {
   border-top-width: 0;
 }
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-1 {
@@ -415,17 +441,30 @@
   position: relative;
   width: fit-content;
   max-width: 100%;
+  /* 余白は上の透明 border-top で他レベルと同量入る。ただし box-sizing が
+     border-box のままだと height にその 1rem が食い込んでタグが潰れるので、
+     H5 だけ content-box に戻す（height ＝ タグの高さそのもの）。
+     ::before / ::after の基準もパディングボックス＝ボーダーの内側なので、
+     タグの見た目は余白の有無に関わらず変わらない。 */
+  box-sizing: content-box;
   height: var(--sec-tag-h);
   line-height: var(--sec-tag-h);
-  /* H5 だけはセクション間の余白を付けない（タグの設計上、上下 0）。
-     上の透明 border-top のルールから H5 は除外済み。
-     padding-top / bottom は (0,4,0) のルールで既に 0。 */
   /* とがりの先端を x=0 に置く（H1/H3 の左バー・H4 の三角と同じ左端）。
      ::before を 1px 本体に食い込ませてある分だけ引き戻す */
   margin-left: calc(var(--sec-tag-point) - 1px);
   padding-right: 0.85em !important;
   padding-left: 0.7em !important;
-  background: var(--sec-tag-bg);
+  /* ★ shorthand の `background:` を使わないこと。
+     CSS Backgrounds 3 では shorthand は省略した longhand を初期値に戻すので、
+     `background: <色>` と書いた時点で background-clip が初期値 border-box に
+     リセットされる。上の「セクション間の余白」ルール（同じ詳細度 (0,4,0)・
+     このルールより前）が付けた background-clip: padding-box が潰れ、
+     タグの塗りが透明な border-top（＝見出し上の余白 1rem）まで広がって
+     「背景が上に伸びる」。longhand の background-color で塗る。
+     H3 が同じ問題を起こさないのは、塗りを与えているのが
+     `.markdown-rendered h3, .HyperMD-header-3`（LP 側は詳細度 (0,1,0)）で、
+     padding-box を指定した (0,4,0) のルールに負けるから。 */
+  background-color: var(--sec-tag-bg);
   letter-spacing: 0.03em;
 }
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-5::before {
@@ -515,39 +554,71 @@
                   padding を持たせる
      th/td にだけ padding を書くと (0,2,1) で負けて読み取り側にしか
      効かず、両ビューで余白がズレる。適用先を分けて同じ値を渡すこと。
+   ---- Bases に寄せる（2026-09-04）----
+   Markdown 表と Bases（.base）で見た目が揃っていなかった。色は既に共通
+   だったので、ずれていたのは**寸法**:
+
+       項目          Markdown 既定            Bases 既定
+       字サイズ      --font-text-size 16px    --font-smaller 0.875em
+       行の高さ      パディング成り行き       --bases-table-row-height 30px 固定
+       セル余白      4px 8px                  4px 8px（同じ）
+       縦位置        top                      中央
+
+   Obsidian は Markdown 表にも --table-* のトークン一式を用意している
+   （app.css body・--table-text-size / --table-header-weight など）。
+   個々の th/td を手で上書きするのではなく、**Markdown 側のトークンを
+   Bases 側のトークンに向ける**。こうすると値が 1 か所（Bases）に集まり、
+   以後どちらかだけがずれることが無くなる。
+
+   ※ .base ファイルのビューは Obsidian 自身が容器の枠と角丸を 0 にして
+     いる（app.css の .workspace-leaf-content[data-type="bases"]）ので、
+     こちらも枠は付けない。埋め込み Bases だけが枠付きになるのは
+     Obsidian の設計どおり。
    ============================================================= */
+.markdown-preview-view,
+.markdown-source-view.mod-cm6 {
+  /* 字と行 */
+  --table-text-size: var(--bases-table-font-size);
+  --table-header-size: var(--bases-table-font-size);
+  --table-line-height: var(--line-height-tight);
+  --table-cell-vertical-alignment: middle;
+  /* ヘッダ（Bases 側の定義をそのまま借りる） */
+  --table-header-weight: var(--bases-table-header-weight);
+  --table-header-color: var(--bases-table-header-color);
+  --table-header-background: var(--bases-table-header-background);
+  --table-row-background-hover: var(--bases-table-row-background-hover);
+  /* 罫線。--table-border-color は Bases の行・列の区切りも読む共通変数 */
+  --table-border-width: 1px;
+}
+
 .markdown-preview-view table,
 .markdown-source-view.mod-cm6 table {
   border-collapse: collapse;
-  line-height: 1.5;
 }
 
-/* 罫線は両ビューとも th/td に乗る（ウィジェットは border を触らない）。
-   本文色ベースなので薄い既定色より視認性が高く、両テーマで馴染む。 */
+/* 行の高さを Bases の 30px に揃える。セルの height は最小値として効くので、
+   本文が折り返した行はちゃんと伸びる（Bases の 1 行省略とは違い、
+   ノートの表では中身を隠したくない）。
+   パディングは Obsidian 既定（4px 8px）が Bases と同値なので触らない。 */
 .markdown-preview-view th,
 .markdown-preview-view td,
 .markdown-source-view.mod-cm6 th,
 .markdown-source-view.mod-cm6 td {
-  border: 1px solid var(--sec-line);
+  height: var(--bases-table-row-height);
+  border: var(--table-border-width) solid var(--sec-line);
 }
 
-/* パディングは適用先が違うので分けて書き、同じ値を渡す */
-.markdown-preview-view th,
-.markdown-preview-view td {
-  padding: var(--sec-table-pad);
-}
-.markdown-source-view.mod-cm6 .cm-table-widget .table-cell-wrapper {
-  padding: var(--sec-table-pad);
-}
-
-/* ヘッダ：罫線での強調をやめ、セルの下地をアクセント色にする。
+/* ヘッダ：アクセントは下線で入れる。
    --table-header-background は `.markdown-rendered thead tr` でしか
-   消費されず Live Preview のウィジェットに届く保証がないため、
-   変数の設定に加えて両ビューの th を明示指定する。 */
+   消費されず Live Preview のウィジェットに届かないため、
+   トークン設定に加えて両ビューの th を明示指定する（実測・app.css）。
+   ※ border-bottom は上の共通ルールを上書きする。border-collapse:
+     collapse なので、この線は 1 行目のセル上辺と共有され、太いほうが
+     描画される＝表の中で 1 本だけ引ける。 */
 .markdown-preview-view thead th,
 .markdown-source-view.mod-cm6 thead th {
   background-color: var(--sec-table-head-bg);
-  font-weight: 700;
+  border-bottom: var(--sec-table-head-rule) solid var(--sec-table-head-line);
 }
 
 .markdown-preview-view tbody tr:hover td,
@@ -556,8 +627,10 @@
 }
 
 /* =============================================================
-   Bases（.base ファイル／ノートへの埋め込み）の表ヘッダ
-   Markdown の表ヘッダと同じアクセント下地に揃える。
+   Bases（.base ファイル／ノートへの埋め込み）の表
+   ここが表の見た目の**正本**。上の Markdown 表はこのブロックの
+   --bases-table-* を参照して寸法・ヘッダを合わせている。
+   値を変えるときはここを触ること（両方が一緒に動く）。
 
    ※ Bases は --table-header-background を読まない。専用の
      --bases-table-header-* 系（app.css の body で定義）を使うので、
@@ -571,14 +644,21 @@
 .markdown-preview-view,
 .markdown-source-view.mod-cm6 {
   --bases-table-header-background: var(--sec-table-head-bg);
-  --bases-table-header-background-hover: color-mix(in srgb, var(--sec-c3) 30%, var(--background-primary));
+  --bases-table-header-background-hover: color-mix(in srgb, var(--sec-c3-mute) 14%, var(--background-primary));
   --bases-table-header-color: var(--text-normal);
-  --bases-table-header-weight: 700;
+  --bases-table-header-weight: 600;
+  /* 以下 2 つは app.css の既定と同値。Markdown 表がこれを参照するので、
+     「暗黙の既定に依存している」ことを明示するために書き出しておく。
+     密度を変えたくなったらこの 2 行だけを触れば両方に効く。 */
+  --bases-table-font-size: var(--font-smaller);
+  --bases-table-row-height: 30px;
   /* 罫線。Bases は box-shadow で線を引いており、参照する変数が2系統ある。
        行・列の区切り   : .bases-tr / .bases-td → --table-border-color
        ヘッダ行の下線   : .bases-thead        → --bases-table-border-color
-     既定の淡い色のままだとアクセント下地に埋もれて消えるため、
-     Markdown 表と同じ --sec-line に揃える。 */
+     既定の淡い色のままだと消えるため、Markdown 表と同じ --sec-line に揃える。
+     ヘッダ下線だけは Markdown 表と同じアクセント線を渡す（Bases は
+     .bases-thead の box-shadow をこの変数で引くので、色を差し替えるだけで
+     下線がアクセントになる）。 */
   --table-border-color: var(--sec-line);
-  --bases-table-border-color: var(--sec-line);
+  --bases-table-border-color: var(--sec-table-head-line);
 }

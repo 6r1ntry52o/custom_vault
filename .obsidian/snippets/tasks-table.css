@@ -2,7 +2,7 @@
    Tasks プラグインのクエリ結果をテーブル風に整列させる
    （チェックボックスはクリックで元ファイルを書き換え可能なまま）
 
-   列: [☑] [優先度] [📅 期限日] [⏩ 延期] [ファイル] [タスク内容] [📝 編集]
+   列: [☑] [優先度] [📅 期限日] [⏩ 延期] [ファイル > セクション] [タスク内容] [📝 編集]
    対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
 
    ---- 構造の前提（Tasks プラグインの DOM）----
@@ -30,7 +30,7 @@
     auto               /* 2 優先度 🔺⏫🔼🔽⏬（付いた行が無ければ自然に幅 0） */
     auto               /* 3 期限日 📅（日付の実幅ぶんだけ取る） */
     auto               /* 4 延期 ⏩ */
-    auto               /* 5 ファイル名（内容ぶんだけ。上限は要素側の max-width） */
+    auto               /* 5 ファイル名 > セクション（内容ぶんだけ。上限は要素側の max-width） */
     minmax(0, 1fr)     /* 6 タスク内容（余りを全部もらう） */
     1.4em;             /* 7 編集 📝 */
   column-gap: 0.2em;
@@ -47,6 +47,9 @@
      （和文フォントはベースラインより下が空くので、下を少し削ると視覚的に揃う） */
   --tasks-pad-top: 0.12em;
   --tasks-pad-bottom: 0.12em;
+  /* ファイル列で「まだ続きがある」を示すフェードの幅（≒全角1文字）。
+     見え方の調整はここだけ触れば足りる（0 にすればフェードは消える）。 */
+  --tasks-backlink-fade: calc(var(--tasks-small) * 1.2);
 }
 
 /* li が 1 行ぶんの箱。罫線とホバーはここに乗せるので、
@@ -261,14 +264,47 @@
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink {
   white-space: nowrap;
   overflow: hidden;
+  /* ⚠ この ellipsis は効かない（親が font-size: 0 ＝ 省略記号も 0px で描かれる）。
+     「切れている」の合図は下の mask-image のフェードが担う。 */
   text-overflow: ellipsis;
   opacity: 0.8;
   /* 列トラックは auto ＝ 内容ぶんだけ。長いファイル名で本文の列が潰れないよう、
      上限だけここで止める（超えた分は overflow: hidden で切る）。
      ⚠ この箱は下で font-size: 0 にするので em は使えない（すべて 0 に潰れる）。
-       px 基準の --tasks-small から起こすこと。 */
-  max-width: calc(var(--tasks-small) * 12);
+       px 基準の --tasks-small から起こすこと。
+     ⚠ 上限 = ファイル名だけでなく「ファイル名 > セクション」1行分の幅
+       （2026-09-06 に 12 → 22 へ拡張）。Tasks は非 short mode のリンク文字列を
+       getLinkText() で `filename + " > " + precedingHeader` と組み立てるので、
+       セクションは最初から <a> のテキストに入っている。12 だとその " > 見出し"
+       が overflow: hidden で黙って切れていた（親が font-size: 0 のため
+       text-overflow の省略記号も描かれず、切れたことに気づけない）。
+       列トラックは auto ＝ 全行の最大値なので、1行でも長い見出しがあると
+       この上限まで広がり、その分だけ本文の列が狭くなる。上げすぎない。
+     ⚠ 上限はテキスト 22 文字ぶん＋フェード幅。padding は border-box に含まれるので
+       足しておかないと、フェードを入れた分だけ本文が短くなる。 */
+  box-sizing: border-box;
+  max-width: calc(var(--tasks-small) * 22 + var(--tasks-backlink-fade));
   margin-right: calc(var(--tasks-small) * 0.5);
+
+  /* ---- 切れていることを示すフェード（2026-09-06） ----
+     この span はグリッドアイテム＝既定で列トラック幅いっぱいに stretch する。
+     そのため「全行が収まっている」状態でも、最長の行だけはテキストが箱の
+     右端ちょうどで終わる。そこへ素直にフェードを掛けると、切れていない行が
+     切れて見える（誤検知）。
+
+     padding-right でこれを消す。overflow のクリップが起きるのは content box
+     ではなく **padding box** なので、
+
+       ・収まっている行 … トラック幅 = テキスト + padding。テキストは padding の
+                          手前で終わる → フェード領域は常に空 → 何も起きない
+       ・溢れた行     … テキストは padding 領域まで伸びて padding box で切れる
+                          → フェード領域に実際の文字が乗る → ぼける
+
+     と、上限に達した行だけが自動的にフェードする。JS も :has() も要らない。
+     背景色ではなく mask を使うのは、テーマ／ホバー背景に依存しないため。 */
+  padding-right: var(--tasks-backlink-fade);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tasks-backlink-fade)), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--tasks-backlink-fade)), transparent);
   /* Tasks は非 short mode で " (" と ")" をテキストノードとして直接追加する。
      テキストノードは CSS で選択できないため、親を font-size:0 にして潰し、
      中の <a>（ファイル名リンク）だけ実サイズに戻す。 */
@@ -337,6 +373,14 @@
   .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .task-extras {
     display: inline;
     pointer-events: auto;
+  }
+  /* インラインに戻るとグリッドアイテムでなくなり、overflow も max-width も
+     効かない＝そもそも切れないのでフェードは不要。padding だけが残ると
+     ファイル名の後ろに謎の余白が出るので、両方まとめて外す。 */
+  .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink {
+    padding-right: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 }
 

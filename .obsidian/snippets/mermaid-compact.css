@@ -1,0 +1,149 @@
+/* ==========================================================================
+   mermaid-compact
+   Mermaid 図の「余白圧縮」＋「開いている幅への自動追従」
+   --------------------------------------------------------------------------
+   設計の一次情報: db/CSS_装飾テスト.md §17-h
+   実測環境: Obsidian 1.9.14 / obsidian.asar 実読
+
+   🔴 黄金律（これを破ると "箱はそのまま・文字だけ動く" 崩れが起きる）
+     Obsidian は mermaid を  body 直下の一時 div.mermaid  で描画・実測してから
+     ノートへ差し込む。したがって
+       - SVG の *中身* の文字寸法に効く CSS は `.mermaid` だけをスコープにする。
+         `.markdown-rendered` や cssclasses を前置すると実測時に効かず崩れる。
+       - SVG の *外側の大きさ* だけを変える CSS（width / max-width / height）は
+         viewBox 経由の均等スケールなので、どこにスコープしても崩れない。
+     禁止: SVG 要素への CSS `transform`（配置用の transform 属性を詳細度0で潰す）
+     不採用: `zoom`（foreignObject が再レイアウトされ折返しが変わる）
+
+   🔴 CSS では動かせない（描画時に SVG 座標へ焼き込まれる）
+     nodeSpacing / rankSpacing / padding / diagramPadding / fontSize
+     → 図ごとの frontmatter config で指定する（§17-e / §17-f 参照）
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. 自動フィット（既定・全図に適用）
+   --------------------------------------------------------------------------
+   height を殺すのが要点。mermaid は SVG に height を *属性* で固定するため、
+   幅だけ縮んでも高さが残り、preserveAspectRatio="xMidYMid meet" で
+   上下に巨大な空白が生まれる。これが「図の余白」の正体。
+   `height:auto` + viewBox でアスペクト比から高さが再計算され、空白が消える。
+
+   max-width に !important を付けないのは意図的:
+     - flowchart/sequence/git/er ... インライン style 無し → この CSS が効く（はみ出さない）
+     - gantt/class/state/journey/pie ... インライン style="max-width:Npx" が勝つ
+       → 元の自然サイズを上限に保ったまま、狭いときだけ縮む（＝過拡大しない）
+   ========================================================================== */
+
+.mermaid > svg,
+.markdown-rendered .mermaid > svg,
+.obsidian-document .mermaid > svg {
+  max-width: 100%;
+  height: auto !important;
+  display: block;
+  margin-inline: auto;
+}
+
+
+/* ==========================================================================
+   2. 外側のトリム（SVG の外の箱だけ＝スコープ自由）
+   ========================================================================== */
+
+.markdown-rendered .mermaid,
+.obsidian-document .mermaid {
+  margin-block: 0.4em;
+  padding: 0;
+  line-height: 0;        /* svg 下に出る inline 由来の隙間を消す */
+  text-align: center;
+}
+
+/* pre/code ブロック側の余白（テーマが付ける外枠）も詰める */
+.markdown-rendered .el-pre:has(> .mermaid),
+.markdown-rendered pre:has(> .mermaid) {
+  margin-block: 0.4em;
+  padding: 0;
+}
+
+
+/* ==========================================================================
+   3. ラベルの行間・余白を詰める
+   --------------------------------------------------------------------------
+   ★ CSS で「本当にノード枠が縮む」唯一のレバー。
+   `.mermaid` スコープ＝実測時にも効くので、枠と文字が同じ前提で計算される。
+   ここに `.markdown-rendered` を足した瞬間に崩れる。絶対に足さないこと。
+   ========================================================================== */
+
+.mermaid .nodeLabel p,
+.mermaid .edgeLabel p,
+.mermaid .cluster-label p,
+.mermaid .label p,
+.mermaid .messageText p,
+.mermaid foreignObject p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.15 !important;
+}
+
+.mermaid .nodeLabel,
+.mermaid .edgeLabel,
+.mermaid .cluster-label {
+  line-height: 1.15 !important;
+}
+
+
+/* ==========================================================================
+   4. cssclasses による切り替え（frontmatter で 1 ノートずつ指定）
+   --------------------------------------------------------------------------
+   ---
+   cssclasses:
+     - mermaid-fill
+   ---
+   ※ ここはすべて「SVG の外側の大きさ」だけを変えるので崩れない
+   ========================================================================== */
+
+/* 4-1. 幅いっぱいまで拡大（小さい図も引き伸ばす。図中心のノート向き） */
+.mermaid-fill .mermaid > svg {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 4-2. 均等縮小（文字と枠の相対位置は絶対にズレない） */
+.mermaid-90 .mermaid > svg { max-width: 90% !important; }
+.mermaid-80 .mermaid > svg { max-width: 80% !important; }
+.mermaid-70 .mermaid > svg { max-width: 70% !important; }
+.mermaid-60 .mermaid > svg { max-width: 60% !important; }
+
+/* 4-3. 縮小せず原寸のまま横スクロール（巨大フローで文字を読みたいとき） */
+.mermaid-scroll .markdown-rendered .mermaid,
+.mermaid-scroll .obsidian-document .mermaid,
+.markdown-rendered.mermaid-scroll .mermaid {
+  overflow-x: auto;
+  text-align: left;
+}
+.mermaid-scroll .mermaid > svg {
+  max-width: none !important;
+  width: auto !important;
+  margin-inline: 0;
+}
+
+/* 4-4. 外周カット（diagramPadding を物理的に削る。効果は小） */
+.mermaid-crop .mermaid > svg {
+  margin: -8px;
+}
+
+
+/* ==========================================================================
+   5. 既定 OFF: 書体を細くして枠幅そのものを縮める
+   --------------------------------------------------------------------------
+   Obsidian は themeVariables.fontFamily = var(--font-mermaid) で初期化しており、
+   mermaid は描画前にこの書体で実寸を測る → 変数を差し替えると矩形の幅が縮む。
+   ただし実測は body 直下で起きるので `body` / `:root` に置かないと効かない。
+   日本語の condensed 書体が無い環境では ASCII 部分にしか効かない。
+   使うときは下の 3 行のコメントを外す。
+   ========================================================================== */
+
+/*
+body {
+  --font-mermaid: "Roboto Condensed", "Arial Narrow", var(--font-interface);
+}
+*/

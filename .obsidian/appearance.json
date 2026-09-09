@@ -5,7 +5,8 @@
     "section-headings",
     "code-vscode-dark",
     "tasks-table",
-    "dataview-compact"
+    "dataview-compact",
+    "mermaid-compact"
   ],
-  "accentColor": "#000078"
+  "accentColor": "#6464a0"
 }

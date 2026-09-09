@@ -480,8 +480,25 @@
 }
 
 /* ------------------------------------------------------------
-   group by ... の見出し（ファイル名など）の上下マージンを 0 に
-   Tasks は入れ子の深さに応じて h4〜h6 を出力する
+   group by ... の見出し（ファイル名など）の余白
+   Tasks は入れ子の深さに応じて h4〜h6 を出力する（nestingLevel 0→h4 / 1→h5 / 以降 h6）。
+
+   ---- なぜ line-height:0 をやめたか（2026-09-09 修正）----
+   Tasks の addGroupHeading() は見出しの中身を MarkdownRenderer で描くので、
+   実 DOM は `<h4 class="tasks-group-heading"><p dir="auto">…</p></h4>`。
+   旧実装は見出しに line-height: 0 を当てていたが、その 0 は中の p にも継承され、
+   p の行ボックスまで潰れる。つまり見出しの高さは
+   app.css の `.markdown-rendered p { margin-block: var(--p-spacing) }`＝
+   p のマージン 1rem だけで持っていた（偶然そう見えていただけ）。
+
+   Webpage HTML Export は書き出し先の CSS に
+     `.heading p { margin: 0 !important }`
+   を入れるため、その 1rem が消える → 見出しの高さが 0 になり、
+   グループ見出しの文字が下のタスク一覧に重なる（実測: ~/Downloads/core-ie.html）。
+
+   そこで高さは「見出し自身の line-height」で持たせ、中の p のマージンは
+   こちらで明示的に 0 にする。Obsidian と書き出し HTML で同じ結果になり、
+   エクスポート側の !important に依存しない。上下の余白は padding で持つ。
 ------------------------------------------------------------ */
 .block-language-tasks h1.tasks-group-heading,
 .block-language-tasks h2.tasks-group-heading,
@@ -493,9 +510,14 @@
   margin-block-end: 0;
   margin-top: 0;
   margin-bottom: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  line-height: 0;
+  padding-top: 0.45em;     /* 見出しの上の余白（前のグループとの間） */
+  padding-bottom: 0.2em;   /* 見出しと自分のタスク一覧の間 */
+  line-height: var(--line-height-tight);
+}
+/* 見出しの中身は p 1枚。マージンで高さを作らせない（上のブロックの理由） */
+.block-language-tasks .tasks-group-heading > p {
+  margin: 0;
+  line-height: inherit;
 }
 
 /* 見出しとタスクリストの間の余白を完全に除去（ラッパー有無どちらでも効くように） */

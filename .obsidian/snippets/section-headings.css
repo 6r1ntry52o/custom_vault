@@ -102,7 +102,18 @@
   --sec-bar-3:  4px;      /* H3 の左バーの太さ（H1 より細くして階層差を出す） */
   --sec-rule-3: 2.25px;   /* H3 の下線の太さ */
   --sec-h3-padx: 0.7em;   /* H3 の下地を文字の右側へ広げる量 */
-  --sec-h3-pady: 0.14em;  /* H3 の下地の上下の厚み */
+  /* H3 の下地の厚み。上下を別に持つ（読み取り／Live Preview 共通の値）。
+     上を厚くしているのは、行高 1.15 だと和文の字面が行ボックスの上端まで来て
+     文字が下地の上辺に触って見えるため（2026-09-09 実測）。
+     下は罫線（--sec-rule-3）がもう一段分の余白として効くので上より薄くて釣り合う。
+     LP 側は .cm-line の行ボックス＝カーソル高さにも乗るので、厚くすると行間も太る。 */
+  --sec-h3-pady-t: 0.46em;  /* 文字の上の隙間（読み取りモード） */
+  --sec-h3-pady-b: 0.30em;  /* 文字の下の隙間（この下に罫線が付く・両モード共通） */
+  /* Live Preview だけ上をさらに厚くする。LP の帯は .cm-line のパディングボックス＝
+     行ボックスに密着していて、同じ値でも読み取りより上が詰まって見えるため
+     （2026-09-09 実測・見た目を揃えるための値であって別デザインではない）。
+     上の隙間を増減したいときはこの1行だけ動かす。 */
+  --sec-h3-pady-t-lp: 0.70em;
   --sec-rule-4: 1.5px;    /* H4 の下線の太さ（H2 よりさらに細くする） */
   --sec-h4-padx: 0.5em;   /* H4 の下線を文字の右側へ伸ばす量 */
   --sec-h4-pady: 0.16em;  /* H4 の文字と下線の間隔 */
@@ -210,7 +221,7 @@
   box-sizing: border-box;
   width: fit-content;
   max-width: 100%;
-  padding: var(--sec-h3-pady) var(--sec-h3-padx) var(--sec-h3-pady)
+  padding: var(--sec-h3-pady-t) var(--sec-h3-padx) var(--sec-h3-pady-b)
            calc(var(--sec-indent) - var(--sec-bar-3));
   border-left: var(--sec-bar-3) solid var(--sec-c3);
   border-bottom: var(--sec-rule-3) solid var(--sec-c3);
@@ -419,10 +430,14 @@
 .markdown-source-view.mod-cm6 .cm-line.HyperMD-header-3 {
   width: fit-content;
   max-width: 100%;
+  /* 行高を読み取りモードと揃える（180行目 `.markdown-rendered :is(h1,h2,h3)` と同じ 1.15）。
+     LP の既定は app.css の `--h3-line-height: 1.3`＝行ボックスが 0.15em 高く、
+     同じ padding でも帯だけが上下に膨らんで文字が上寄りに見えていた（2026-09-09 実測）。 */
+  line-height: 1.15;
   border-left: 0;
   box-shadow: inset var(--sec-bar-3) 0 0 0 var(--sec-c3);
-  padding-top: var(--sec-h3-pady);
-  padding-bottom: var(--sec-h3-pady);
+  padding-top: var(--sec-h3-pady-t-lp);
+  padding-bottom: var(--sec-h3-pady-b);
   padding-right: var(--sec-h3-padx) !important;
   padding-left: var(--sec-indent) !important;
 }

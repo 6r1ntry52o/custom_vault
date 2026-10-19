@@ -2,7 +2,11 @@
    Tasks プラグインのクエリ結果をテーブル風に整列させる
    （チェックボックスはクリックで元ファイルを書き換え可能なまま）
 
-   列: [☑] [優先度] [📅 期限日] [⏩ 延期] [ファイル > セクション] [タスク内容] [📝 編集]
+   列（2026-10-19 変更・この vault の既定）:
+     左寄せ … [☑][タスク内容] ……… 余った幅はすべてタスク内容の表示領域
+     右寄せ … [ファイル > セクション][⏩ 延期][📅 期限日][優先度][📝 編集]
+   ☑ は show tree の階層ぶん（1 段 = --tasks-indent-step ≒ チェックボックス幅）
+   右へずれ、本文はその右隣から始まる。ファイル名は最上位の行だけに出す。
    対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
 
    ---- 構造の前提（Tasks プラグインの DOM）----
@@ -11,10 +15,12 @@
        ├ input.task-list-item-checkbox
        └ span.task-extras       … .tasks-urgency / .tasks-backlink /
                                    .tasks-edit / .tasks-postpone
-   期限日は .tasks-list-text の中、延期ボタンは .task-extras の中にあり、
-   並べたい順序（期限日 → 延期 → 本文 → リンク → 編集）はこの 2 つの
-   ラッパーをまたぐ。そこで ul に 6 列を定義し、li と両ラッパーを
-   subgrid にして、親の列トラックを共有させている。
+   期限日・優先度は .tasks-list-text の中、ファイル名・延期・編集は
+   .task-extras の中にあり、並べたい順序（本文 → ファイル名 → 延期 →
+   期限日 → 優先度 → 編集）はこの 2 つのラッパーをまたぐ。そこで ul に
+   6 列を定義し、li と両ラッパーを subgrid にして、親の列トラックを
+   共有させている。2 つのラッパーは覆う列が重なる（本文側 1〜5 列・
+   extras 側 2〜6 列）が、中身が入るセルは重ならない。
 
    ※ display:contents でラッパーを潰す方法は採らない。期限日を持たない
      タスクでは .task-due と .tasks-postpone がそもそも生成されず、列に
@@ -26,13 +32,12 @@
   display: grid;
   /* 列幅。好みで調整 */
   grid-template-columns:
-    auto               /* 1 チェックボックス */
-    auto               /* 2 優先度 🔺⏫🔼🔽⏬（付いた行が無ければ自然に幅 0） */
-    auto               /* 3 期限日 📅（日付の実幅ぶんだけ取る） */
-    auto               /* 4 延期 ⏩ */
-    auto               /* 5 ファイル名 > セクション（内容ぶんだけ。上限は要素側の max-width） */
-    minmax(0, 1fr)     /* 6 タスク内容（余りを全部もらう） */
-    1.4em;             /* 7 編集 📝 */
+    minmax(0, 1fr)     /* 1 ☑ ＋ タスク内容（余りを全部もらう。インデントは行ごとの余白） */
+    auto               /* 2 ファイル名 > セクション（内容ぶんだけ。上限は要素側の max-width） */
+    auto               /* 3 延期 ⏩ */
+    minmax(5em, auto)  /* 4 期限日 📅（日付の実幅ぶん。1 行も日付が無い時の下限 5em） */
+    1.4em              /* 5 優先度 🔺⏫🔼🔽⏬ */
+    1.4em;             /* 6 編集 📝 */
   column-gap: 0.2em;
   row-gap: 0;
   margin: 0 0 0 0;   /* 上マージン 0 = 見出しとタスクの間を詰める */
@@ -50,6 +55,21 @@
   /* ファイル列で「まだ続きがある」を示すフェードの幅（≒全角1文字）。
      見え方の調整はここだけ触れば足りる（0 にすればフェードは消える）。 */
   --tasks-backlink-fade: calc(var(--tasks-small) * 1.2);
+  /* 階層 1 段ぶんのインデント（チェックボックス 1 個ぶん＋すき間）。
+     ☑ の左マージンと本文の左パディングが同じ値を使う＝段がぴったり噛み合う。
+     ⚠ ここで em を使わないこと。カスタムプロパティは「使う側の要素」で
+       解決されるため、em だと <input>（Chrome 既定 13.33px）と本文（16px）で
+       別の値になり、☑ と本文の段差が 1 段ごとにズレていく（2026-10-19 実測）。
+       px に解決される変数だけで組む。 */
+  --tasks-indent-step: calc(var(--checkbox-size, 16px) + var(--font-text-size, 16px) * 0.35);
+}
+
+/* インデント領域に引く縦ガイド線の色（show tree の節）。行ごとの既定値で、
+   期限で色が付いた行は下の色分け節が上書きする＝子のガイド線＝親の行の色。
+   ⚠ ul 側で宣言しないこと。この ul ルールは入れ子の ul にも当たるため、
+     そこで既定値を書くと親の行から継承した色が毎段つぶれる（2026-10-19 実測）。 */
+.block-language-tasks ul.plugin-tasks-query-result > li {
+  --tasks-row-line: var(--background-modifier-border);
 }
 
 /* li が 1 行ぶんの箱。罫線とホバーはここに乗せるので、
@@ -82,15 +102,15 @@
   line-height: var(--tasks-line-box);
 }
 
-/* ⏩ とタスク内容の間の縦罫線。
-   li 自身の ::before をグリッドアイテムとして 6 列目（タスク内容）の
+/* タスク内容と、右寄せの固定列（ファイル名〜📝）の間の縦罫線。
+   li 自身の ::before をグリッドアイテムとして 2 列目（ファイル名）の
    左端に置き、幅 0 ＋ border-left で 1px の線にする。列幅は auto や 1fr で
    決まるため位置を数値で指定できないが、この方法なら常に列境界に乗る。
    align-self: stretch で行の高さいっぱいに伸ばし、上下は li のパディング
    ぶん（0.12em）マイナスマージンで食い出させて、上下の横罫線まで届かせる。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before {
   content: "";
-  grid-column: 6;
+  grid-column: 2;
   grid-row: 1;
   justify-self: start;
   align-self: stretch;
@@ -108,7 +128,9 @@
   --list-spacing: 0;
 }
 
-/* 1列目: チェックボックス（テーマの負マージンを打ち消す）。
+/* 1列目の左端: チェックボックス。show tree の階層ぶん右へずらす
+   （margin-left ＝ 深さ × インデント幅）。本文は同じ 1 列目に重ねて置き、
+   チェックボックス 1 個ぶんの padding で逃がしてある（下の .task-description）。
    2 行になっても 1 行目に留め、その中で上下中央に置く。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > input.task-list-item-checkbox {
   grid-column: 1;
@@ -119,23 +141,28 @@
   top: 0;
   align-self: start;
   margin-top: calc((var(--tasks-line-box) - var(--checkbox-size, 1em)) / 2);
-  justify-self: center;
+  margin-left: calc(var(--tasks-tree-depth, 0) * var(--tasks-indent-step));
+  justify-self: start;
+  /* 本文のラッパー（.tasks-list-text はプラグインが position:relative を当てる
+     ＝前面）と同じ 1 列目に居るので、持ち上げないとクリックを本文に奪われる。 */
+  position: relative;
+  z-index: 1;
 }
 
-/* 2〜6列目: [優先度][📅 期限日][（延期の列は空ける）][（ファイルの列は空ける）][タスク内容]
-   ファイル名は .task-extras 側の要素なので、ここでは列を空けて通り過ぎるだけ。 */
+/* 1〜5列目: [☑＋タスク内容][（ファイル名の列は空ける）][（延期の列は空ける）][📅 期限日][優先度]
+   ファイル名・延期は .task-extras 側の要素なので、ここでは列を空けて通り過ぎるだけ。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text {
   display: grid;
   grid-template-columns: subgrid;
-  grid-column: 2 / 7;
+  grid-column: 1 / 6;
   grid-row: 1;
   align-items: start;
   align-content: start;
   min-width: 0;
   overflow-wrap: anywhere;
-  /* この箱は 2〜5 列目（⏩ の列を含む）を覆う。さらにプラグインの
+  /* この箱は 1〜5 列目（ファイル名・⏩ の列を含む）を覆う。さらにプラグインの
      styles.css が .tasks-list-text に position: relative を当てているため、
-     静的配置の .task-extras より前面に描かれ、⏩ のクリックを奪ってしまう。
+     静的配置の .task-extras より前面に描かれ、ファイル名・⏩ のクリックを奪ってしまう。
      箱自体の当たり判定を切り、葉要素だけに戻す（.task-extras と対称）。 */
   pointer-events: none;
 }
@@ -147,7 +174,7 @@
    通常（normal）の優先度では componentToString() が空文字を返すため、
    期限日と同じく span 自体が生成されず、このセルは空のまま残る。 */
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-priority {
-  grid-column: 1;
+  grid-column: 5;
   grid-row: 1;
   justify-self: center;
   white-space: nowrap;
@@ -170,7 +197,7 @@
    中身が空なので、放っておくと幅 0 になり当たり判定が消える。編集列と同じ
    1.4em を確保して、絵文字ありの行と列幅が揃うようにする。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder {
-  grid-column: 1;
+  grid-column: 5;
   grid-row: 1;
   justify-self: stretch;
   text-align: center;
@@ -190,9 +217,10 @@
   opacity: 0.7;
 }
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-due {
-  grid-column: 2;
+  grid-column: 4;
   grid-row: 1;
   white-space: nowrap;
+  text-align: right;
   font-size: var(--tasks-small);
   opacity: 0.85;
 }
@@ -206,9 +234,12 @@
   font-size: 0;
 }
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-description {
-  grid-column: 5;
+  grid-column: 1;
   grid-row: 1;
-  padding-left: 0.2em;   /* 縦罫線と本文の間の余白（⏩ 側と同じ量） */
+  /* 同じ 1 列目に重ねてあるチェックボックスの右隣から始める。
+     深さが 1 段増えるごとに ☑ ごと 1 段ぶん右へ動く（☑ の margin-left と同じ式）。 */
+  padding-left: calc((var(--tasks-tree-depth, 0) + 1) * var(--tasks-indent-step));
+  padding-right: 0.4em;  /* 右の縦罫線に文字を付けない */
 }
 /* 本文クリックで元の md を開けるのは JS が動いている ul だけ（優先度セルと同じ判定）。
    セル全体が当たり判定なので、文字の右の余白を押しても開く。
@@ -216,26 +247,31 @@
 .block-language-tasks ul.plugin-tasks-query-result[data-due-picker] .tasks-list-text > .task-description {
   cursor: pointer;
 }
-/* 繰り返し・開始日など、明示配置していない要素は本文の列に流し、
-   2 行目以降へ送る（延期ボタン用の細い列に落ちて潰れるのを防ぐ） */
-.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-priority):not(.task-due):not(.task-description) {
-  grid-column: 5;
+/* 繰り返し・開始日など、明示配置していない要素は本文の列（1列目）に流し、
+   2 行目以降へ送る（優先度用の細い列に落ちて潰れるのを防ぐ）。
+   左の余白は本文と揃える。
+   ⚠ JS が挿すプレースホルダ 2 種をここから除くこと（2026-10-19）。列と行は
+     下の専用ルールが上書きするが、padding-left は上書きされないので、階層の
+     インデントぶんだけ箱が右へ膨らみ、＋ や - が 📝 の右まではみ出す。 */
+.block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > *:not(.task-priority):not(.task-due):not(.task-description):not(.tasks-due-placeholder):not(.tasks-priority-placeholder) {
+  grid-column: 1;
   grid-row: 2;
+  padding-left: calc((var(--tasks-tree-depth, 0) + 1) * var(--tasks-indent-step));
   font-size: var(--tasks-small);
 }
 
-/* 4・5・7列目: [⏩ 延期][ファイル][📝 編集]
+/* 2・3・6列目: [ファイル][⏩ 延期][📝 編集]
    列だけ指定して行を省くと破綻する。自動配置は DOM 順に前へ進むだけで
    戻れないため、.task-extras の DOM 順（urgency → backlink → edit →
-   postpone）だと、最後の postpone が左の 1 列目に戻れず次の行へ落ちる。
+   postpone）だと、最後の postpone が左の 2 列目に戻れず次の行へ落ちる。
    grid-row: 1 を明示して 1 行に固定する。
-   延期ボタンだけが本文より左に来るため、.tasks-list-text と列が重なる。
-   重なった側（後ろに描かれる .task-extras）が本文へのクリックを奪うので、
-   箱自体は当たり判定を切り、中身だけ戻す。 */
+   この箱は 2〜6 列目を覆い、期限日・優先度（.tasks-list-text 側）と列が
+   重なる。重なった側が相手のクリックを奪うので、箱自体は当たり判定を切り、
+   中身だけ戻す（.tasks-list-text と対称）。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .task-extras {
   display: grid;
   grid-template-columns: subgrid;
-  grid-column: 4 / -1;
+  grid-column: 2 / -1;
   grid-row: 1;
   align-items: start;
   align-content: start;
@@ -245,18 +281,18 @@
   pointer-events: auto;
 }
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-postpone {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
   /* justify-self: stretch で列いっぱいに広がり、overflow:hidden で
      グリフが箱の縁ぴったりに切られるため、縦罫線と接して見える。
      箱を右に少し縮めて隙間を作る。 */
   margin-right: 0.2em;
 }
-.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink { grid-column: 2; grid-row: 1; }
-.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-edit     { grid-column: 4; grid-row: 1; }
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink { grid-column: 1; grid-row: 1; }
+.block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-edit     { grid-column: 5; grid-row: 1; }
 /* .tasks-urgency など未配置の要素はファイルの列へ（2 行目以降に流れる） */
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > *:not(.tasks-postpone):not(.tasks-backlink):not(.tasks-edit) {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 2;
   font-size: var(--tasks-small);
 }
@@ -285,6 +321,9 @@
   box-sizing: border-box;
   max-width: calc(var(--tasks-small) * 22 + var(--tasks-backlink-fade));
   margin-right: calc(var(--tasks-small) * 0.5);
+  /* 右寄せ（2026-10-19 この vault の既定）。溢れた行は行頭側が切れるので、
+     下のフェードも左端に掛ける。 */
+  text-align: right;
 
   /* ---- 切れていることを示すフェード（2026-09-06） ----
      この span はグリッドアイテム＝既定で列トラック幅いっぱいに stretch する。
@@ -292,8 +331,9 @@
      右端ちょうどで終わる。そこへ素直にフェードを掛けると、切れていない行が
      切れて見える（誤検知）。
 
-     padding-right でこれを消す。overflow のクリップが起きるのは content box
-     ではなく **padding box** なので、
+     padding-left でこれを消す（右寄せなので溢れるのは左端。2026-10-19 に
+     padding-right から左右を入れ替えた）。overflow のクリップが起きるのは
+     content box ではなく **padding box** なので、
 
        ・収まっている行 … トラック幅 = テキスト + padding。テキストは padding の
                           手前で終わる → フェード領域は常に空 → 何も起きない
@@ -302,9 +342,9 @@
 
      と、上限に達した行だけが自動的にフェードする。JS も :has() も要らない。
      背景色ではなく mask を使うのは、テーマ／ホバー背景に依存しないため。 */
-  padding-right: var(--tasks-backlink-fade);
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tasks-backlink-fade)), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - var(--tasks-backlink-fade)), transparent);
+  padding-left: var(--tasks-backlink-fade);
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--tasks-backlink-fade)), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - var(--tasks-backlink-fade)), transparent);
   /* Tasks は非 short mode で " (" と ")" をテキストノードとして直接追加する。
      テキストノードは CSS で選択できないため、親を font-size:0 にして潰し、
      中の <a>（ファイル名リンク）だけ実サイズに戻す。 */
@@ -349,9 +389,14 @@
   background: var(--background-modifier-hover);
 }
 
-/* 完了タスクを薄く */
+/* 完了タスクを薄く。
+   ⚠ 取り消し線はラッパーではなく本文のセルに掛ける（2026-10-19）。ラッパーに
+     掛けると、空の期限日セル・優先度セルにも線が引かれ、右側に短い横棒が
+     浮いて見える（show tree で完了済みの子が並ぶと必ず目に入る）。 */
 .block-language-tasks ul.plugin-tasks-query-result > li[data-task-status-type="DONE"] > .tasks-list-text {
   opacity: 0.55;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li[data-task-status-type="DONE"] > .tasks-list-text > .task-description {
   text-decoration: line-through;
 }
 
@@ -360,6 +405,9 @@
   .block-language-tasks ul.plugin-tasks-query-result {
     display: block;
     border-top: none;
+    /* インラインに戻る＝☑ が本文の直前に並ぶので、列モデル用のインデントは
+       要らない（入れ子の段差は ul の margin が付ける。下の show tree の節） */
+    --tasks-indent-step: 0px;
   }
   .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item {
     display: list-item;
@@ -378,7 +426,7 @@
      効かない＝そもそも切れないのでフェードは不要。padding だけが残ると
      ファイル名の後ろに謎の余白が出るので、両方まとめて外す。 */
   .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-backlink {
-    padding-right: 0;
+    padding-left: 0;
     -webkit-mask-image: none;
     mask-image: none;
   }
@@ -565,27 +613,17 @@
    data-due-picker="on" が付くので、:not([data-due-picker]) で自動的に
    無効化され、代わりに末尾の .tasks-due-placeholder 側が使われる。 */
 
-/* .task-extras のサブグリッドを 4列目起点 → 3列目（期限日）起点へ広げる。
-   トラックが 1 本増えるので、中の要素の列番号はすべて +1 になる。 */
-.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras {
-  grid-column: 3 / -1;
-}
-/* 期日が無くても scheduled / start があれば ⏩ は生成される（postpone の
-   表示条件は due ではなく happensDate のいずれかが有効なこと）。
-   出る場合に備えて列番号をずらしておく。 */
-.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-postpone { grid-column: 2; }
-.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-backlink { grid-column: 3; }
-.block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > *:not(.tasks-postpone):not(.tasks-backlink):not(.tasks-edit) {
-  grid-column: 3;
-}
+/* 2026-10-19 の列変更で .task-extras は常に期限日の列（4列目）を覆うように
+   なったので、期日なしの行だけ列を広げ直す必要は無くなった
+   （旧: サブグリッドを 4列目起点 → 3列目起点へずらし、中の列番号を +1 していた）。 */
 
 /* 📝 をサブグリッド全幅（＝グリッド 2〜6列目）に伸ばし、当たり判定を
    期日列まで届かせる。ただし単に伸ばすと、共有ルールの
    overflow:hidden + text-align:center による「1.4em の箱にグリフを収めて
    中央寄せ」が効かなくなり、📝 の見た目の位置が期日ありの行とズレる。
    そこで .tasks-edit 自身をもう一段 subgrid にして、::before（＋）を
-   1列目＝期日列、::after（📝、プラグイン既定の content）を 5列目＝
-   グリッドの 6列目に、それぞれ列トラックへ直接置く。
+   3列目＝グリッドの 4列目（期日）、::after（📝、プラグイン既定の content）を
+   5列目＝グリッドの 6列目に、それぞれ列トラックへ直接置く。
    これで箱は横に広いまま、グリフの位置と幅は他の行と完全に一致する。 */
 .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit {
   grid-column: 1 / -1;
@@ -599,7 +637,7 @@
 /* 期日セルに出す入力の手がかり。日付テキストと同じ字送り・行ボックスに揃える。 */
 .block-language-tasks ul.plugin-tasks-query-result:not([data-due-picker]) > li.plugin-tasks-list-item:not([data-task-due]) > .task-extras > .tasks-edit::before {
   content: "＋";
-  grid-column: 1;
+  grid-column: 3;
   grid-row: 1;
   justify-self: start;
   font-size: var(--tasks-small);
@@ -658,15 +696,17 @@
    ============================================================ */
 
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not([data-task-due]) > .tasks-list-text > .tasks-due-placeholder {
-  grid-column: 2;
+  grid-column: 4;
   grid-row: 1;
   /* 日付テキストと同じ字送り・行ボックスに揃える */
   font-size: var(--tasks-small);
   line-height: var(--tasks-line-box);
-  /* 中身が空なので、放っておくと幅 0 になり当たり判定が消える。
-     他の行の日付（2026-08-23）と同程度の下限を持たせる。列自体が auto なので
-     日付ありの行が 1 つでもあれば、そちらの実幅まで自動で広がる。 */
-  min-width: 10ch;
+  /* 中身は空だが、グリッドアイテムは既定で列いっぱいに広がるので当たり判定は残る。
+     ⚠ ここに min-width を入れないこと（2026-10-19）。subgrid 越しの列サイズ計算
+       では、この min-width が日付の実幅に**上乗せ**されて期限列が倍近くに広がる
+       （10ch 指定で 100px → 160px と実測）。1 行も日付が無い時の下限は列トラック
+       側の minmax(5em, auto) が持つ。 */
+  min-width: 0;
   /* ＋は日付テキストと同じ列の中央に置く（2026-09-01 この vault の既定・旧= 左寄せ）。
      グリッドアイテムは既定で justify-self: stretch ＝ 列幅いっぱいに広がるので、
      text-align だけで「日付が入る幅の真ん中」に来る。box には触れないので
@@ -726,6 +766,7 @@
   --tasks-row-bg-hover: color-mix(in srgb, var(--color-red) 15%, var(--background-modifier-hover));
   --tasks-due-color: var(--color-red);
   --tasks-due-opacity: 1;
+  --tasks-row-line: var(--color-red);
 }
 
 /* 3日以内（明日〜3日後） = 橙 */
@@ -736,6 +777,7 @@
   --tasks-row-bg-hover: color-mix(in srgb, var(--color-orange) 15%, var(--background-modifier-hover));
   --tasks-due-color: var(--color-orange);
   --tasks-due-opacity: 1;
+  --tasks-row-line: var(--color-orange);
 }
 
 /* 1週間以内（4〜7日後） = 黄
@@ -754,6 +796,7 @@
      ダークテーマでは明るい側へ動くので、どちらでも下地から離れる。 */
   --tasks-due-color: color-mix(in srgb, var(--color-yellow) 55%, var(--text-normal));
   --tasks-due-opacity: 1;
+  --tasks-row-line: var(--color-yellow);
 }
 
 /* 行の塗り。汎用の :hover ルール（上）より属性ぶん詳細度が高いので、
@@ -823,4 +866,231 @@
    本文中のリンク（🔗 など）は既定のリンク色のままにしておく＝押せることが分かるように。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due^="past-"] > .tasks-list-text > .task-description {
   color: var(--color-red);
+}
+
+/* ============================================================
+   show tree（入れ子表示）への対応（2026-10-19）
+
+   ---- なぜ崩れていたか ----
+   Tasks は入れ子の ul を「親 li の中」に作る。
+     QueryResultsRenderer.beginTaskList():
+       (this.ulElementStack.length === 0 ? this.content : this.lastLIElement)
+         .createEl("ul")      ← 2 段目以降は直前の li の子になる
+   しかもその ul にも plugin-tasks-query-result が付くので、このファイルの
+   ul ルールがそのまま当たり、
+
+     ① 入れ子の ul が 7 本の列トラックを自分で定義し直す
+        → 親の表と列幅が揃わない
+     ② その ul 自身が親 li のグリッドに自動配置され、1 列ぶんの幅に
+        押し込まれる → 本文が 1 文字ずつ縦に折り返す（これが「崩れ」）
+
+   ---- 直し方 ----
+   入れ子の ul も subgrid にして全列を占有させる。どの深さの行も最上位の
+   ul の列トラックを共有するので、列はひとりでに揃う。インデントは列を
+   動かさずに本文セル（.task-description）の左パディングだけで作る。
+
+   ⚠ 入れ子の ul に padding / border を付けないこと。subgrid の padding は
+     最初と最後のトラックを内側へ詰める＝その行だけ列がずれる。
+     インデントをここで取れないのはこのため。
+   ============================================================ */
+
+/* インデント量そのものは --tasks-indent-step（ファイル冒頭の ul ルール）。
+   ここでは「今が何段目か」だけを決める。 */
+.block-language-tasks ul.plugin-tasks-query-result li > ul.plugin-tasks-query-result {
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  grid-row: 2;            /* 親 li の 1 行目は本文・ファイル名などが占有済み */
+  margin: 0;
+  padding: 0;
+  border-top: none;       /* 表の上端の罫線は最上位の ul だけが持つ */
+  position: relative;     /* 下の縦ガイド線（::before）の基準 */
+}
+
+/* ---- インデント領域の縦ガイド線（2026-10-19 この vault の既定）----
+   「インデント領域に横線は要らない。その分を縦線にして、上位タスクの色にしたい」
+   この ul は 1 人の親の部分木まるごと＝縦に伸びる箱なので、ここに 1 本引けば
+   その親のぶんのガイド線になる。入れ子が深くなるほど ul も入れ子になるので、
+   段ごとに 1 本ずつ（それぞれの親の色で）並ぶ。
+
+   ⚠ グリッドアイテムとして引かない。ul の行は暗黙グリッドなので
+     grid-row: 1 / -1 が効かない（-1 は明示グリッドの終端＝1 行目に潰れる）。
+     position: absolute なら親（この ul）の高さいっぱいに伸ばせる。
+   ⚠ 色の変数（--tasks-row-line）はこの ul では戻さないこと。ここは「親の行」から
+     継承した値を使う場所で、既定値へ戻すのは下の「入れ子の行」側。 */
+.block-language-tasks ul.plugin-tasks-query-result li > ul.plugin-tasks-query-result::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* 親のチェックボックスの中心に合わせる（＝自分より 1 段浅い位置） */
+  left: calc((var(--tasks-tree-depth, 1) - 1) * var(--tasks-indent-step)
+             + var(--checkbox-size, 16px) / 2);
+  border-left: 2px solid var(--tasks-row-line, var(--background-modifier-border));
+  pointer-events: none;
+}
+
+/* 期限の色分けは li に立てた変数で効かせている＝子孫へ継承される。
+   入れ子の「行」で既定値へ戻す（ul ではなく li で戻すのが肝。ul の ::before が
+   親の行の色を読んで縦線を引くため、ul には親の値を残しておく必要がある）。
+   色が付いた行はこれより詳細度の高い色分け節が上書きする。 */
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li {
+  --tasks-row-bg: transparent;
+  --tasks-row-bg-hover: var(--background-modifier-hover);
+  --tasks-due-color: inherit;
+  --tasks-due-opacity: 0.85;
+}
+
+/* ---- 深さ。ul の入れ子の数をそのまま段数にする ----
+   変数は継承するので、5 段目以降は 4 の値をそのまま受け継ぐ＝頭打ちになる。 */
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result { --tasks-tree-depth: 1; }
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result ul.plugin-tasks-query-result { --tasks-tree-depth: 2; }
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result ul.plugin-tasks-query-result ul.plugin-tasks-query-result { --tasks-tree-depth: 3; }
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result ul.plugin-tasks-query-result ul.plugin-tasks-query-result ul.plugin-tasks-query-result { --tasks-tree-depth: 4; }
+
+/* インデント本体は ☑（margin-left）と本文（padding-left）が
+   --tasks-tree-depth を読んで自前で付ける＝ここには何も書かない。
+
+   ファイル名は最上位の行にだけ出す（2026-10-19 この vault の既定）。入れ子の行は
+   親と同じノートなので、出しても同じ名前が並ぶだけになる。 */
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result .task-extras > .tasks-backlink {
+  display: none;
+}
+
+/* ---- 行の塗りと下罫線は li の箱から ::after へ移す ----
+   2 つの事情が重なるため。
+     ・子を持つ行 … li の箱は部分木まるごとを囲む。箱を塗ると親の色・ホバーが
+                    子孫の行まで掛かり、下罫線は部分木の末尾へ落ちて最後の子の
+                    罫線と二重線になる。
+     ・入れ子の行 … 箱は左のインデント領域も含む。箱に下罫線を引くと、
+                    インデント領域にまで横線が伸びる（2026-10-19 に不要と指定）。
+   どちらも ::after（1 行目だけを覆う箱）に移し、::after は margin-left で
+   自分の深さぶん右から始める＝インデント領域には何も描かれない。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result),
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result):hover,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:has(> ul.plugin-tasks-query-result),
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:has(> ul.plugin-tasks-query-result):hover {
+  background: transparent;
+  border-bottom: none;
+  /* 下の余白も 0 に（部分木の下端の罫線は最後の子の行が持つ）。
+     padding ではなく変数を 0 にする＝::after の負マージンも一緒に 0 になる。 */
+  --tasks-pad-bottom: 0px;
+}
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item),
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item:hover,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due],
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:hover {
+  background: transparent;
+  border-bottom: none;
+}
+
+/* 1 行目だけを覆う箱。
+   order: -1 で描画順を先頭へ送り、本文の下に敷く（z-index だと li の外の
+   積み重ね順に巻き込まれる）。上下は li のパディングぶん食い出させて、
+   塗りと罫線が元の border-bottom と同じ位置に来るようにする。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result)::after,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li::after {
+  content: "";
+  grid-column: 1 / -1;
+  grid-row: 1;
+  order: -1;
+  justify-self: stretch;
+  align-self: stretch;
+  margin-top: calc(-1 * var(--tasks-pad-top));
+  margin-bottom: calc(-1 * var(--tasks-pad-bottom));
+  margin-left: calc(var(--tasks-tree-depth, 0) * var(--tasks-indent-step));
+  background: var(--tasks-row-bg, transparent);
+  border-bottom: 1px solid var(--background-modifier-border);
+  pointer-events: none;
+}
+/* ホバー。子の行にカーソルがある時は親を光らせない
+   （li:hover は子孫にカーソルがあるときも真になるため） */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result):hover:not(:has(li:hover))::after,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item:hover:not(:has(li:hover))::after {
+  background: var(--tasks-row-bg-hover, var(--background-modifier-hover));
+}
+
+/* ---- 入れ子の行はファイル名の列まで本文を伸ばす（2026-10-19 この vault の既定）----
+   c2 以降はファイル名を出さない＝その列が空いているので、本文の表示領域に回す。
+   縦罫線（本文と右側の固定列の境目）も 1 本ぶん右へずらす。 */
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result .tasks-list-text > .task-description,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item) > span {
+  grid-column: 1 / 3;
+}
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item)::before {
+  grid-column: 3;
+}
+
+/* ---- タスクでないリスト項目 ----
+   show tree は「ヒットしたタスクの子」をクエリの条件と無関係に全部描く
+   （addChildren() は ListItem.children をそのまま渡す＝素の箇条書きや
+   完了済みの子も混ざる）。タスクでない行は renderListItem() が作るので
+   .plugin-tasks-list-item も .tasks-list-text も付かない。放置すると
+   グリッドの 1 列目へ自動配置されて潰れるため、行の組み立てを別に与える。 */
+.block-language-tasks ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item) {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: start;
+  margin: 0;
+  padding: var(--tasks-pad-top) 0 var(--tasks-pad-bottom);
+  border-bottom: 1px solid var(--background-modifier-border);
+  line-height: var(--tasks-line-box);
+}
+.block-language-tasks ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item) > input.task-list-item-checkbox {
+  grid-column: 1;
+  grid-row: 1;
+  top: 0;
+  margin: calc((var(--tasks-line-box) - var(--checkbox-size, 1em)) / 2) 0 0
+          calc(var(--tasks-tree-depth, 0) * var(--tasks-indent-step));
+  justify-self: start;
+  position: relative;
+  z-index: 1;
+}
+.block-language-tasks ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item) > span {
+  grid-column: 1;
+  grid-row: 1;
+  padding-left: calc((var(--tasks-tree-depth, 0) + 1) * var(--tasks-indent-step));
+  padding-right: 0.4em;
+  opacity: 0.7;           /* タスクではない＝一段弱める */
+}
+/* 縦罫線（タスク行の ::before と同じもの） */
+.block-language-tasks ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item)::before {
+  content: "";
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: start;
+  align-self: stretch;
+  width: 0;
+  margin: calc(-1 * var(--tasks-pad-top)) 0 calc(-1 * var(--tasks-pad-bottom)) -0.2em;
+  border-left: 1px solid var(--background-modifier-border);
+  pointer-events: none;
+}
+
+/* 狭い画面ではテーブル化そのものを解除しているので、入れ子も素のリストに戻す。
+   インデントは本文セルではなく ul の左マージンで取る。 */
+@media (max-width: 700px) {
+  .block-language-tasks ul.plugin-tasks-query-result li > ul.plugin-tasks-query-result {
+    margin-inline-start: 1.5em;
+  }
+  .block-language-tasks ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item) {
+    display: list-item;
+    border-bottom: none;
+    padding: 0;
+  }
+  /* 行の箱・縦ガイド線はテーブル表示のための装置なので、まとめて畳む
+     （インデント量が 0 になるため、ガイド線は全段が同じ位置に重なる） */
+  .block-language-tasks ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item)::before,
+  .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result)::after,
+  .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li::after,
+  .block-language-tasks ul.plugin-tasks-query-result li > ul.plugin-tasks-query-result::before {
+    display: none;
+  }
+  /* 入れ子の行は箱の罫線を外してあるので、リスト表示では戻す必要も無い
+     （区切り線は最上位の行だけが持つ＝素のリストとして読める）。
+     ただし期限の色分けだけは ::after を畳んだぶん箱へ戻す。 */
+  .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due] {
+    background: var(--tasks-row-bg, transparent);
+  }
 }

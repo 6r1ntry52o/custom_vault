@@ -4,7 +4,8 @@
 
    列（2026-10-19 変更・この vault の既定）:
      左寄せ … [☑][タスク内容] ……… 余った幅はすべてタスク内容の表示領域
-     右寄せ … [ファイル > セクション][⏩ 延期][📅 期限日][優先度][📝 編集]
+     右寄せ … [ファイル > セクション][優先度][📅 期限日][⏩ 延期][📝 編集]
+             （2026-10-21 に 優先度↔⏩ を入れ替え・この vault の既定）
    ☑ は show tree の階層ぶん（1 段 = --tasks-indent-step ≒ チェックボックス幅）
    右へずれ、本文はその右隣から始まる。ファイル名は最上位の行だけに出す。
    対象: ```tasks コードブロックの結果のみ（通常のタスクリストには影響しない）
@@ -34,9 +35,9 @@
   grid-template-columns:
     minmax(0, 1fr)     /* 1 ☑ ＋ タスク内容（余りを全部もらう。インデントは行ごとの余白） */
     auto               /* 2 ファイル名 > セクション（内容ぶんだけ。上限は要素側の max-width） */
-    auto               /* 3 延期 ⏩ */
+    1.4em              /* 3 優先度 🔺⏫🔼🔽⏬（2026-10-21 に 5→3 列目へ・この vault の既定） */
     minmax(5em, auto)  /* 4 期限日 📅（日付の実幅ぶん。1 行も日付が無い時の下限 5em） */
-    1.4em              /* 5 優先度 🔺⏫🔼🔽⏬ */
+    auto               /* 5 延期 ⏩（2026-10-21 に 3→5 列目へ） */
     1.4em;             /* 6 編集 📝 */
   column-gap: 0.2em;
   row-gap: 0;
@@ -107,17 +108,25 @@
    左端に置き、幅 0 ＋ border-left で 1px の線にする。列幅は auto や 1fr で
    決まるため位置を数値で指定できないが、この方法なら常に列境界に乗る。
    align-self: stretch で行の高さいっぱいに伸ばし、上下は li のパディング
-   ぶん（0.12em）マイナスマージンで食い出させて、上下の横罫線まで届かせる。 */
+   ぶん（0.12em）マイナスマージンで食い出させて、上下の横罫線まで届かせる。
+
+   ファイル名と ⏩ の間の縦罫線（2026-10-21 この vault の既定）も同じ ::before で引く。
+   箱を 2 列目の幅いっぱいに広げ（justify-self: stretch）、右辺の border-right を
+   2 本目の線にする。右辺は 2 列目の右端＝列間 0.2em ぶん ⏩ から離れ、入れ子の行の線と同じ位置。
+   ⏩ 自身に border を付けないのは、期日なしの行では ⏩ が生成されず線が欠けるため。
+   ⚠ 入れ子の行（ファイル名を出さない）は下の show tree 節で 3 列目へ移し、
+     border-right を外している＝線は ⏩ の左の 1 本だけになり、上の行と揃う。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before {
   content: "";
   grid-column: 2;
   grid-row: 1;
-  justify-self: start;
+  justify-self: stretch;
   align-self: stretch;
-  width: 0;
-  /* 列間 0.4em のちょうど真ん中に置く */
-  margin: calc(-1 * var(--tasks-pad-top)) 0 calc(-1 * var(--tasks-pad-bottom)) -0.2em;
+  /* 右は -1px。border-right は箱の内側に描かれるので、そのままだと入れ子の行の
+     border-left（3 列目の線＝箱の外側から始まる）より 1px 左に出る（2026-10-21 実測） */
+  margin: calc(-1 * var(--tasks-pad-top)) -1px calc(-1 * var(--tasks-pad-bottom)) -0.2em;
   border-left: 1px solid var(--background-modifier-border);
+  border-right: 1px solid var(--background-modifier-border);
   pointer-events: none;
 }
 
@@ -149,7 +158,7 @@
   z-index: 1;
 }
 
-/* 1〜5列目: [☑＋タスク内容][（ファイル名の列は空ける）][（延期の列は空ける）][📅 期限日][優先度]
+/* 1〜5列目: [☑＋タスク内容][（ファイル名の列は空ける）][優先度][📅 期限日][（延期の列は空ける）]
    ファイル名・延期は .task-extras 側の要素なので、ここでは列を空けて通り過ぎるだけ。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item > .tasks-list-text {
   display: grid;
@@ -174,7 +183,7 @@
    通常（normal）の優先度では componentToString() が空文字を返すため、
    期限日と同じく span 自体が生成されず、このセルは空のまま残る。 */
 .block-language-tasks ul.plugin-tasks-query-result .tasks-list-text > .task-priority {
-  grid-column: 5;
+  grid-column: 3;
   grid-row: 1;
   justify-self: center;
   white-space: nowrap;
@@ -197,7 +206,7 @@
    中身が空なので、放っておくと幅 0 になり当たり判定が消える。編集列と同じ
    1.4em を確保して、絵文字ありの行と列幅が揃うようにする。 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="normal"] > .tasks-list-text > .tasks-priority-placeholder {
-  grid-column: 5;
+  grid-column: 3;
   grid-row: 1;
   justify-self: stretch;
   text-align: center;
@@ -260,7 +269,7 @@
   font-size: var(--tasks-small);
 }
 
-/* 2・3・6列目: [ファイル][⏩ 延期][📝 編集]
+/* 2・5・6列目: [ファイル][⏩ 延期][📝 編集]（extras の中では 1・4・5 列目）
    列だけ指定して行を省くと破綻する。自動配置は DOM 順に前へ進むだけで
    戻れないため、.task-extras の DOM 順（urgency → backlink → edit →
    postpone）だと、最後の postpone が左の 2 列目に戻れず次の行へ落ちる。
@@ -281,10 +290,10 @@
   pointer-events: auto;
 }
 .block-language-tasks ul.plugin-tasks-query-result .task-extras > .tasks-postpone {
-  grid-column: 2;
+  grid-column: 4;          /* extras 内 4 列目＝グリッド 5 列目（期限日と 📝 の間） */
   grid-row: 1;
   /* justify-self: stretch で列いっぱいに広がり、overflow:hidden で
-     グリフが箱の縁ぴったりに切られるため、縦罫線と接して見える。
+     グリフが箱の縁ぴったりに切られるため、右隣（📝）と接して見える。
      箱を右に少し縮めて隙間を作る。 */
   margin-right: 0.2em;
 }
@@ -759,6 +768,21 @@
      ので、期限が遠い行や期日なしの行の見た目は変わらない。
    ============================================================ */
 
+/* ---- 優先度 Low / Lowest = 青（2026-10-21 この vault の既定）----
+   Low → かなり薄い青、Lowest → 薄い青（低いほど濃く＝沈める）。
+   ⚠ 期限の色のほうが優先。この節は期限の節より「前」に置き、詳細度も
+     同じにしてある＝期限が赤/橙/黄に該当する行は後ろの節が変数を上書きする。
+     期限が遠い（future-far）・期日なしの行だけが青になる。
+   ⚠ 青はテーマ変数 --color-blue を混ぜて作る＝ライト/ダークの切替に追随する。 */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-priority="low"] {
+  --tasks-row-bg: color-mix(in srgb, var(--color-blue) 4%, transparent);
+  --tasks-row-bg-hover: color-mix(in srgb, var(--color-blue) 4%, var(--background-modifier-hover));
+}
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-priority="lowest"] {
+  --tasks-row-bg: color-mix(in srgb, var(--color-blue) 9%, transparent);
+  --tasks-row-bg-hover: color-mix(in srgb, var(--color-blue) 9%, var(--background-modifier-hover));
+}
+
 /* 超過 ＋ 今日 = 赤 */
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due^="past-"],
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:not(.is-checked)[data-task-due="today"] {
@@ -801,10 +825,16 @@
 
 /* 行の塗り。汎用の :hover ルール（上）より属性ぶん詳細度が高いので、
    ホバー時は必ずこちらが使われる＝色分けした行もホバーが効く。 */
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due] {
+/* 期日なしでも Low/Lowest は塗る＝[data-task-priority] の 2 本を並べる
+   （詳細度は [data-task-due] と同じ。下の show tree 節の打ち消しも同じ 3 本で揃える） */
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"],
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"] {
   background: var(--tasks-row-bg, transparent);
 }
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:hover {
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:hover,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"]:hover,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"]:hover {
   background: var(--tasks-row-bg-hover, var(--background-modifier-hover));
 }
 
@@ -968,7 +998,11 @@
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result),
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item:has(> ul.plugin-tasks-query-result):hover,
 .block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:has(> ul.plugin-tasks-query-result),
-.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:has(> ul.plugin-tasks-query-result):hover {
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:has(> ul.plugin-tasks-query-result):hover,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"]:has(> ul.plugin-tasks-query-result),
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"]:has(> ul.plugin-tasks-query-result):hover,
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"]:has(> ul.plugin-tasks-query-result),
+.block-language-tasks ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"]:has(> ul.plugin-tasks-query-result):hover {
   background: transparent;
   border-bottom: none;
   /* 下の余白も 0 に（部分木の下端の罫線は最後の子の行が持つ）。
@@ -979,7 +1013,11 @@
 .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item),
 .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item:hover,
 .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due],
-.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:hover {
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due]:hover,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"],
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"]:hover,
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"],
+.block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"]:hover {
   background: transparent;
   border-bottom: none;
 }
@@ -1020,6 +1058,10 @@
 .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item::before,
 .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li:not(.plugin-tasks-list-item)::before {
   grid-column: 3;
+  /* 最上位の行は 2 列目を覆って左右 2 本引くが、入れ子の行は ⏩ の左の 1 本だけ */
+  justify-self: start;
+  width: 0;
+  border-right: none;
 }
 
 /* ---- タスクでないリスト項目 ----
@@ -1090,7 +1132,9 @@
   /* 入れ子の行は箱の罫線を外してあるので、リスト表示では戻す必要も無い
      （区切り線は最上位の行だけが持つ＝素のリストとして読める）。
      ただし期限の色分けだけは ::after を畳んだぶん箱へ戻す。 */
-  .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due] {
+  .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-due],
+  .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="low"],
+  .block-language-tasks ul.plugin-tasks-query-result ul.plugin-tasks-query-result > li.plugin-tasks-list-item[data-task-priority="lowest"] {
     background: var(--tasks-row-bg, transparent);
   }
 }

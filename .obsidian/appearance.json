@@ -6,7 +6,8 @@
     "code-vscode-dark",
     "tasks-table",
     "dataview-compact",
-    "mermaid-compact"
+    "mermaid-compact",
+    "vault-task-status"
   ],
   "accentColor": "#6464a0"
 }
